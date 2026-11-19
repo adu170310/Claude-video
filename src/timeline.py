@@ -1,0 +1,26 @@
+"""Shared timeline for picture and sound (seconds). 96 BPM: one beat = 0.625 s."""
+FPS = 30
+W, H = 1080, 1920
+DUR = 45.0
+BEAT = 0.625
+
+OPEN_IN = 0.25                  # "Sport in Dubai is scattered."
+SCATTER = 3.3                   # letters drift apart
+S2 = 5.0                        # clutter scene
+CAPS = [5.3, 6.55, 7.8]         # Group chats. / Spreadsheets. / Phone calls.
+COLLAPSE = 10.0                 # clutter pulled into the phone
+MERGE = 10.9                    # flash, phone appears
+ONE_APP = 11.6                  # "One clean app."
+S2_OUT = 14.45
+S3 = 15.0
+WORDS = [15.0, 16.25, 17.5, 18.75, 20.0]   # Discover. Book. Play. Train. Compete.
+FULL = 21.25
+S3_OUT = 22.6
+LANDS = [24.375, 27.5, 30.625, 33.75]       # four app screens land on the beat
+SLIDE = 0.8
+S4_OUT = 35.55
+LOGO = 36.25
+WORDMARK = 36.9
+LINE = 38.125
+CTA = 40.0
+PILL = 40.625
