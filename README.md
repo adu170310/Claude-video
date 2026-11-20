@@ -28,3 +28,35 @@ A launch film for Athlo in the style of an Apple product page, made entirely in 
 
 - The "Places to play" header, logo bar, photos and home page are taken from the real app recording. The booking, join-a-game and leaderboard screens are mock-ups in the app's own palette and type, because the recording doesn't include those flows. The names and numbers on them are placeholders.
 - The music is synthesised here, so it is original and carries no licence or Content ID risk.
+
+---
+
+# Athlo Reel: "One line, every sport." (17 s, 1080x1920, 30 fps)
+
+```
+reel/render.sh          # about 30 s on 4 cores -> out/athlo_reel_one_line_17s_1080x1920.mp4
+reel/render.sh stills   # one still per beat for review -> work/reel/stills/contact_sheet.png
+```
+
+A single orange-to-pink ribbon carries the whole film without breaking. Every background change
+(off-white #F4F2EC, orange #FFAD01, pink #FC0464) is a ribbon wipe: the line snaps to an edge,
+sweeps across, pulls the new colour behind it, then springs into the next sport. 128 BPM, with a new beat every 1.41 s.
+
+| Time | Beat |
+|---|---|
+| 0.00 | Off-white. The ribbon draws itself on; "One line." types on. |
+| 1.41 | Orange. The ribbon is a padel ball's arc over the net, with a bounce pop. PADEL |
+| 2.81 | Pink. Straight track lane, a running shoe, motion lines. RUN |
+| 4.22 | Off-white. A curled pass into the goal; the net ripples. FOOTBALL |
+| 5.63 | Orange. The ribbon is the bowstring: it draws, releases, and the arrow hits the bullseye. ARCHERY |
+| 7.03 | Pink. A lane rope riding water waves, with a splash. SWIM |
+| 8.44 | Off-white. Dumbbell, shuttlecock and cricket bat, each outlined by the ribbon (one beat each). "…any sport." |
+| 10.31 | Orange. A rising staircase, one dot per step, up to a trophy. "Every session counts." |
+| 11.72 | Off-white. The ribbon wraps the real Athlo rings; the logo pops in. |
+| 13.13 | End card (3.9 s): "Join the Athlo 30x30 challenge", prizes, and the ribbon wrapped round a "Link in bio" button. |
+
+- `reel/timeline.py` holds the scene times and safe area (text kept between 10% and 80% of the height).
+- `reel/prep.py` cuts the real logo off its white background, keeping its colours, and records the ring geometry.
+- `reel/picture.py` is the cairo renderer. It also writes `cues.json` (sport hits) and `motion.json` (ribbon speed per frame).
+- `reel/score.py` makes the original synth track (four-on-the-floor, off-beat bass, chord stabs, a pluck line and a snare-roll build) plus every sound effect. The whoosh is noise shaped by the ribbon's measured speed and panned with its position.
+- `reel/master.py` takes the mix to -14 LUFS through a 4x-oversampled limiter, then re-measures the encoded file to confirm the true peak stays below -1.5 dBTP.
