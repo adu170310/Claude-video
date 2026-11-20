@@ -1,27 +1,26 @@
-"""Shared timeline for picture and sound (seconds). 96 BPM: one beat = 0.625 s. 30 s = 48 beats."""
+"""Shared timeline for picture and sound (seconds). 96 BPM: one beat = 0.625 s."""
 FPS = 30
 W, H = 1080, 1920
-DUR = 30.0
+DUR = 45.0
 BEAT = 0.625
 
-# Safe area for key text and buttons: out of the top tenth and the bottom fifth.
-SAFE_TOP = 192
-SAFE_BOTTOM = 1536
-
-HOOK_IN = 0.12                  # "Sport in Dubai is scattered." over chaos already in motion
-NUDGE = 1.9                     # three letters slip, then settle by NUDGE + 1.0
-HOOK_OUT = 3.55                 # hook text leaves before the collapse
-COLLAPSE = 3.75                 # chaos pulled to the centre
-MERGE = 4.375                   # flash -> the real Athlo logo
-LOGO_UP = 5.0                   # logo rises, phone with the real app slides up
-APP_OUT = 7.12                  # app shot leaves
-WORDS = [7.5, 10.0, 12.5, 15.0, 17.5]       # Discover / Book / Play / Train / Compete, 4 beats each
-RECAP = [20.0 + i * BEAT / 2 for i in range(5)]   # the line builds word by word on eighth notes
-RECAP_OUT = 21.95
-LOGO = 22.5
-LINE = 23.125                   # "Your sports life, in one place."
-LINE_OUT = 24.62
-CTA = 25.0                      # "Join the Dubai Fitness 30x30" (largest line)
-WHOOP = 25.3125                 # "Win a Whoop for playing any sport."
-BUTTON = 25.625                 # big "Link in bio" button
-PULSE = 27.5                    # button press pulse
+OPEN_IN = 0.25                  # "Sport in Dubai is scattered."
+SCATTER = 3.3                   # letters drift apart
+S2 = 5.0                        # clutter scene
+CAPS = [5.3, 6.55, 7.8]         # Group chats. / Spreadsheets. / Phone calls.
+COLLAPSE = 10.0                 # clutter pulled into the phone
+MERGE = 10.9                    # flash, phone appears
+ONE_APP = 11.6                  # "One clean app."
+S2_OUT = 14.45
+S3 = 15.0
+WORDS = [15.0, 16.25, 17.5, 18.75, 20.0]   # Discover. Book. Play. Train. Compete.
+FULL = 21.25
+S3_OUT = 22.6
+LANDS = [24.375, 27.5, 30.625, 33.75]       # four app screens land on the beat
+SLIDE = 0.8
+S4_OUT = 35.55
+LOGO = 36.25
+WORDMARK = 36.9
+LINE = 38.125
+CTA = 40.0
+PILL = 40.625

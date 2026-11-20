@@ -51,19 +51,11 @@ for _ in range(3):
 
 pic = os.path.join(WK, "picture.mp4")
 os.makedirs(os.path.join(ROOT, "out"), exist_ok=True)
-final = os.path.join(ROOT, "out", "athlo_launch_30s_1080x1920.mp4")
-# two-pass ABR so the file lands under 30 MB: 6.8 Mbps video + 192 kbps audio over 30 s ~ 26 MB
-venc = ["-c:v", "libx264", "-preset", "slow", "-profile:v", "high", "-level", "4.2", "-b:v", "6800k",
-        "-maxrate", "9500k", "-bufsize", "13600k", "-g", "15", "-bf", "2", "-pix_fmt", "yuv420p",
-        "-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709", "-color_range", "tv"]
-plog = os.path.join(WK, "x264pass")
-subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", pic, *venc, "-pass", "1",
-                "-passlogfile", plog, "-an", "-f", "mp4", os.devnull], check=True)
+final = os.path.join(ROOT, "out", "athlo_launch_45s_1080x1920.mp4")
 subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", pic, "-i", tmp,
-                "-map", "0:v", "-map", "1:a", *venc, "-pass", "2", "-passlogfile", plog,
-                "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-movflags", "+faststart", "-shortest", final], check=True)
-mb = os.path.getsize(final) / 1e6
-print(f"size {mb:.1f} MB")
-if mb >= 30:
-    sys.exit("over 30 MB")
+                "-map", "0:v", "-map", "1:a", "-c:v", "libx264", "-preset", "slow", "-profile:v", "high",
+                "-level", "4.2", "-crf", "17", "-maxrate", "16M", "-bufsize", "32M", "-g", "15", "-bf", "2",
+                "-pix_fmt", "yuv420p", "-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709",
+                "-color_range", "tv", "-c:a", "aac", "-b:a", "320k", "-ar", "48000", "-movflags", "+faststart",
+                "-shortest", final], check=True)
 print("wrote", final)
