@@ -42,9 +42,16 @@ print("logo", full.size, "rings", sq.size)
 
 # ---------------------------------------------------------------- real app screens
 REC = os.path.join(A, "app_recording.mov")
-TIMES = [0.3, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 9.5, 10.5]  # clean, fully loaded frames
-for i, t in enumerate(TIMES):
+# 12 distinct, fully loaded frames; each is used once in the tunnel.
+# (time, crop) — crop removes the status bar, floating chat button and browser URL bar.
+FULL = "crop=1206:1975:0:175"
+MENU = "crop=936:1534:270:175"  # the menu drawer only, without the blurred page behind it
+SHOTS = [(0.0, FULL), (1.0, FULL), (1.6, FULL), (2.4, FULL), (3.2, FULL), (4.0, FULL),
+         (4.4, FULL), (4.8, FULL), (5.6, FULL), (7.6, MENU), (9.5, FULL), (10.5, FULL)]
+for f in os.listdir(os.path.join(PUB, "screens")):
+    os.remove(os.path.join(PUB, "screens", f))
+for i, (t, crop) in enumerate(SHOTS):
     out = os.path.join(PUB, "screens", f"screen_{i}.jpg")
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", str(t), "-i", REC, "-frames:v", "1",
-                    "-vf", "crop=1206:1975:0:175,scale=720:-1", "-q:v", "2", out], check=True)
-print("screens", len(TIMES))
+                    "-vf", f"{crop},scale=900:-1", "-q:v", "2", out], check=True)
+print("screens", len(SHOTS))

@@ -19,24 +19,37 @@ const H = 1920;
 export const SAFE_TOP = H * 0.1;
 export const SAFE_BOTTOM = H * 0.8;
 
-const Line: React.FC<{ text: string; a: number; b: number; y: number; size?: number; outLen?: number }> = ({ text, a, b, y, size = 46, outLen = 9 }) => {
+// Soft dark glow so type reads on any background (bright tunnel screens included).
+const GLOW_SHADOW = '0 0 18px rgba(8,9,12,0.55), 0 0 48px rgba(8,9,12,0.5), 0 4px 90px rgba(8,9,12,0.45)';
+
+const Line: React.FC<{ text: string; a: number; b: number; y: number; size?: number; outLen?: number; inLen?: number }> = ({
+  text, a, b, y, size = 100, outLen = 9, inLen = 16,
+}) => {
   const f = useCurrentFrame();
   if (f < a || f > b) return null;
-  const tin = easeOut(prog(f, a, a + 16));
+  const tin = easeOut(prog(f, a, a + inLen));
   const tout = easeIn(prog(f, b - outLen, b));
   const o = tin * (1 - tout);
   return (
-    <div
-      style={{
-        position: 'absolute', left: 60, right: 60, top: y, textAlign: 'center',
-        transform: `translateY(calc(-50% + ${(1 - tin) * 14 - tout * 6}px)) scale(${1.0 + 0.012 * (f - a) / 30})`,
-        fontFamily: 'InterDisplay', fontWeight: 500, fontSize: size, lineHeight: 1.12, letterSpacing: '-0.012em',
-        color: 'rgba(255,255,255,0.85)', opacity: o, filter: `blur(${(1 - tin) * 14 + tout * 10}px)`,
-        textShadow: '0 2px 24px rgba(10,10,14,0.35)',
-      }}
-    >
-      {text}
-    </div>
+    <AbsoluteFill style={{ opacity: o }}>
+      <div
+        style={{
+          position: 'absolute', left: 40, right: 40, top: y, height: size * 3.2, transform: 'translateY(-50%)',
+          background: 'radial-gradient(ellipse 52% 46% at 50% 50%, rgba(10,11,14,0.42) 0%, rgba(10,11,14,0.18) 55%, rgba(10,11,14,0) 100%)',
+          filter: 'blur(24px)',
+        }}
+      />
+      <div
+        style={{
+          position: 'absolute', left: 60, right: 60, top: y, textAlign: 'center', whiteSpace: 'pre-line',
+          transform: `translateY(calc(-50% + ${(1 - tin) * 20 - tout * 8}px)) scale(${1.0 + (0.012 * (f - a)) / 30})`,
+          fontFamily: 'InterDisplay', fontWeight: 500, fontSize: size, lineHeight: 1.04, letterSpacing: '-0.02em',
+          color: 'rgba(255,255,255,0.92)', filter: `blur(${(1 - tin) * 14 + tout * 10}px)`, textShadow: GLOW_SHADOW,
+        }}
+      >
+        {text}
+      </div>
+    </AbsoluteFill>
   );
 };
 
@@ -76,8 +89,8 @@ const EndCard: React.FC = () => {
     <AbsoluteFill>
       <div
         style={{
-          position: 'absolute', left: 70, right: 70, top: 900, transform: `translateY(calc(-50% + ${(1 - h) * 16}px))`,
-          textAlign: 'center', fontFamily: 'InterDisplay', fontWeight: 500, fontSize: 92, lineHeight: 1.06, letterSpacing: '-0.02em',
+          position: 'absolute', left: 70, right: 70, top: 880, transform: `translateY(calc(-50% + ${(1 - h) * 16}px))`, textShadow: GLOW_SHADOW,
+          textAlign: 'center', fontFamily: 'InterDisplay', fontWeight: 500, fontSize: 116, lineHeight: 1.04, letterSpacing: '-0.025em',
           color: 'rgba(255,255,255,0.92)', opacity: h, filter: `blur(${(1 - h) * 14}px)`,
         }}
       >
@@ -87,12 +100,12 @@ const EndCard: React.FC = () => {
       </div>
       <div
         style={{
-          position: 'absolute', left: (W - 640) / 2, width: 640, top: 1240, height: 150, borderRadius: 75,
+          position: 'absolute', left: (W - 760) / 2, width: 760, top: 1250, height: 180, borderRadius: 90,
           transform: `translateY(calc(-50% + ${(1 - btn) * 18}px)) scale(${pulse})`, opacity: btn, filter: `blur(${(1 - btn) * 10}px)`,
           background: 'linear-gradient(100deg, #FFAD01 0%, #FE6A2E 45%, #FC0464 100%)',
           boxShadow: '0 18px 60px rgba(252,4,100,0.35), 0 6px 30px rgba(255,173,1,0.25), inset 0 1px 0 rgba(255,255,255,0.45)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontFamily: 'InterDisplay', fontWeight: 500, fontSize: 54, letterSpacing: '-0.01em', color: '#ffffff',
+          fontFamily: 'InterDisplay', fontWeight: 500, fontSize: 72, letterSpacing: '-0.015em', color: '#ffffff', textShadow: '0 2px 16px rgba(120,0,40,0.35)',
         }}
       >
         Link in bio
@@ -106,10 +119,10 @@ export const Reel: React.FC = () => (
     <ThreeCanvas width={W} height={H} flat dpr={1} gl={{ antialias: false, preserveDrawingBuffer: true, powerPreference: 'high-performance' }} camera={{ fov: 32, position: [0, 0, 10] }}>
       <Scene />
     </ThreeCanvas>
-    <Line text="With Athlo" a={6} b={50} y={960} size={46} />
-    <Line text="Just play." a={TL.b3 + 6} b={TL.b4 - 2} y={960} size={58} />
-    <Line text="Every sport. One app." a={TL.b4 + 4} b={TL.b5 + 2} y={960} size={54} />
-    <Line text="Your sports life, unleashed." a={TL.b6 + 2} b={TL.b7 + 4} y={1440} size={54} />
+    <Line text={"Every sport\nin Dubai.\nOne app."} a={-8} b={54} y={930} size={124} inLen={12} />
+    <Line text="Just play." a={TL.b3 + 6} b={TL.b4 - 2} y={960} size={116} />
+    <Line text={"Every sport.\nOne app."} a={TL.b4 + 4} b={TL.b5 + 2} y={960} size={108} />
+    <Line text={"Your sports life,\nunleashed."} a={TL.b6 + 2} b={TL.b7 + 4} y={1385} size={104} />
     <GlowWipe at={TL.b3} />
     <GlowWipe at={TL.b4} />
     <GlowWipe at={TL.b5} />

@@ -2,14 +2,15 @@ import React, { useLayoutEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { useThree } from '@react-three/fiber';
 import { Environment, Lightformer, RoundedBox, Text, useTexture } from '@react-three/drei';
-import { EffectComposer, Bloom, DepthOfField, ToneMapping, Vignette, Noise } from '@react-three/postprocessing';
+import { EffectComposer, Bloom, DepthOfField, ToneMapping, Vignette, Noise} from '@react-three/postprocessing';
 import { BlendFunction, ToneMappingMode } from 'postprocessing';
 import { staticFile, useCurrentFrame } from 'remotion';
 import { TL, prog, lerp, easeInOut, easeOut, easeIn, smooth, path, rand, env } from '../anim';
-import { Glass, SportIcon, SPORTS, ORANGE, PINK } from './glass';
+import { Glass, ORANGE, PINK } from './glass';
+import { SportObject, SPORT_OBJS } from './sports';
 import { Settle } from './Settle';
 
-const SCREENS = Array.from({ length: 9 }, (_, i) => staticFile(`screens/screen_${i}.jpg`));
+const SCREENS = Array.from({ length: 12 }, (_, i) => staticFile(`screens/screen_${i}.jpg`));
 const FONT = staticFile('fonts/InterDisplay-Medium.ttf');
 useTexture.preload(SCREENS);
 useTexture.preload(staticFile('logo_full.png'));
@@ -22,28 +23,28 @@ function shotAt(f: number): Shot {
   if (f < TL.b3) {
     // Beats 1-2: slow dolly from wide studio into the glass panel and orb
     const p = path(f, [
-      [0, [0.9, 1.3, 16.5, 0.0, 0.35, 0, 30]],
-      [45, [0.6, 0.85, 14.0, 0.0, 0.2, 0, 31]],
-      [85, [0.3, 0.45, 11.4, 0.0, 0.08, 0, 32]],
-      [120, [0.08, 0.15, 9.4, 0.0, 0.0, 0, 33]],
+      [0, [0.9, 1.1, 16.0, 0.0, 0.3, 0, 30]],
+      [45, [0.6, 0.75, 14.2, 0.0, 0.15, 0, 31]],
+      [85, [0.3, 0.4, 12.2, 0.0, 0.05, 0, 32]],
+      [120, [0.08, 0.15, 10.6, 0.0, 0.0, 0, 33]],
     ]);
-    return { pos: p.slice(0, 3), look: p.slice(3, 6), fov: p[6], focus: p[2] - 0.6, range: 2.8, bokeh: 3 };
+    return { pos: p.slice(0, 3), look: p.slice(3, 6), fov: p[6], focus: p[2] - 0.4, range: 4.5, bokeh: 2 };
   }
   if (f < TL.b4) {
     // Beat 3: fly-through down the tunnel of real app screens, accelerating
     const t = prog(f, TL.b3, TL.b4);
-    const z = 3 - 46 * (0.38 * t + 0.62 * t * t);
+    const z = 4.5 - 21 * (0.45 * t + 0.55 * t * t);
     const x = 0.18 * Math.sin(t * 3.2);
     const y = 0.12 * Math.cos(t * 2.4);
-    return { pos: [x, y, z], look: [x * 0.4, y * 0.4, z - 12], fov: 58, roll: 0.14 * Math.sin(t * Math.PI), focus: 3.2, range: 3.4, bokeh: 4 };
+    return { pos: [x, y, z], look: [x * 0.4, y * 0.4, z - 12], fov: 60, roll: 0.1 * Math.sin(t * Math.PI), focus: 3.0, range: 1.8, bokeh: 6 };
   }
   if (f < TL.b5) {
     // Beat 4: glass tiles drifting in depth, camera dollies and slides
     const p = path(f, [
-      [TL.b4, [0.6, 0.25, 8.4, 0.1, 0.0, -2]],
-      [TL.b5, [-0.45, -0.1, 5.6, -0.1, 0.0, -2]],
+      [TL.b4, [0.55, 0.2, 9.4, 0.1, 0.0, -2]],
+      [TL.b5, [-0.45, -0.1, 7.0, -0.1, 0.0, -2]],
     ]);
-    return { pos: p.slice(0, 3), look: p.slice(3, 6), fov: 38, focus: 5.4, range: 2.4, bokeh: 4.5 };
+    return { pos: p.slice(0, 3), look: p.slice(3, 6), fov: 38, focus: p[2] - 0.2, range: 2.4, bokeh: 4 };
   }
   if (f < TL.b7) {
     // Beats 5-6: tilt up across the pill, then pull back as the streaks open up
@@ -94,9 +95,9 @@ void main(){
   vec3 d = normalize(vDir);
   float hz = 1.0 - smoothstep(0.0, 0.55, abs(d.y + 0.08));
   vec3 col = mix(uBase, uLift, hz * 0.8);
-  col += uO * pow(max(dot(d, uDO), 0.0), 18.0) * uOn;
-  col += uP * pow(max(dot(d, uDP), 0.0), 18.0) * uOn;
-  col += vec3(1.0, 0.93, 0.86) * 0.02 * pow(max(dot(d, uDW), 0.0), 5.0) * uOn;
+  col += uO * pow(max(dot(d, uDO), 0.0), 90.0) * uOn;
+  col += uP * pow(max(dot(d, uDP), 0.0), 90.0) * uOn;
+  col += vec3(0.95, 0.97, 1.0) * 0.08 * pow(max(dot(d, uDW), 0.0), 5.0) * uOn;
   gl_FragColor = vec4(col, 1.0);
 }`;
 const BACKDROP_VERT = /* glsl */ `
@@ -115,10 +116,10 @@ const Backdrop: React.FC<{ on: number }> = ({ on }) => {
         fragmentShader: BACKDROP_FRAG,
         uniforms: {
           uOn: { value: 0 },
-          uBase: { value: new THREE.Color('#1e1f23') },
-          uLift: { value: new THREE.Color('#25262b') },
-          uO: { value: new THREE.Color(ORANGE).multiplyScalar(0.11) },
-          uP: { value: new THREE.Color(PINK).multiplyScalar(0.09) },
+          uBase: { value: new THREE.Color('#35373d') },
+          uLift: { value: new THREE.Color('#404249') },
+          uO: { value: new THREE.Color(ORANGE).multiplyScalar(0.75) },
+          uP: { value: new THREE.Color(PINK).multiplyScalar(0.6) },
           uDO: { value: new THREE.Vector3(-0.55, 0.42, -1).normalize() },
           uDP: { value: new THREE.Vector3(0.62, 0.12, -1).normalize() },
           uDW: { value: new THREE.Vector3(0, 1, -0.4).normalize() },
@@ -162,13 +163,13 @@ const LightCard: React.FC<{ color: string; i: number; pos: [number, number, numb
   );
 };
 
-const SpotL: React.FC<{ position: [number, number, number]; target: [number, number, number]; color: string; intensity: number }> = ({ position, target, color, intensity }) => {
+const SpotL: React.FC<{ position: [number, number, number]; target: [number, number, number]; color: string; intensity: number; distance?: number }> = ({ position, target, color, intensity, distance = 40 }) => {
   const t = useMemo(() => new THREE.Object3D(), []);
   t.position.set(...target);
   return (
     <>
       <primitive object={t} />
-      <spotLight position={position} target={t} angle={0.42} penumbra={1} intensity={intensity} decay={1.6} distance={30} color={color} />
+      <spotLight position={position} target={t} angle={0.5} penumbra={0.9} intensity={intensity} decay={1.6} distance={distance} color={color} />
     </>
   );
 };
@@ -179,55 +180,70 @@ const Studio: React.FC<{ on: number; f: number; floorY?: number }> = ({ on, f, f
     <group>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, floorY, -10]}>
         <planeGeometry args={[80, 60]} />
-        <meshStandardMaterial color="#3a3b41" roughness={0.32} metalness={0.1} envMapIntensity={0.35} />
+        <meshStandardMaterial color="#2e3036" roughness={0.2} metalness={0.15} envMapIntensity={0.3} />
       </mesh>
-      <SpotL position={[-3.5, 6, 3]} target={[-1.2, floorY, -1.5]} intensity={34 * on} color={ORANGE} />
-      <SpotL position={[3.5, 6, 2]} target={[1.4, floorY, -2.5]} intensity={30 * on} color={PINK} />
-      <SpotL position={[0, 8, 5]} target={[0, floorY, 0]} intensity={14 * on} color="#fff4ea" />
-      <LightCard color={ORANGE} i={0.12 * on} pos={[-2.4 + drift, 2.4, -9]} size={5.5} />
-      <LightCard color={PINK} i={0.11 * on} pos={[2.6 - drift, 0.6, -11]} size={6} />
-      <LightCard color="#ffe9d6" i={0.04 * on} pos={[0.2, 4.5, -14]} size={12} />
+      {/* key lights: strong orange from the left, pink from the right, a white top light */}
+      <SpotL position={[-4.5, 6, 5]} target={[-0.4, 0, 0]} intensity={75 * on} color={ORANGE} />
+      <SpotL position={[4.5, 5, 4]} target={[0.4, -0.2, 0]} intensity={65 * on} color={PINK} />
+      <SpotL position={[0, 9, 6]} target={[0, 0.5, 0]} intensity={95 * on} color="#ffffff" />
+      <SpotL position={[-1.5, 2.5, 9]} target={[0, 0.3, 0]} intensity={55 * on} color="#ffffff" distance={16} />
+      {/* white rim lights from behind so every object gets a crisp edge */}
+      <SpotL position={[-3, 3.5, -6]} target={[0, 0.3, 0]} intensity={140 * on} color="#ffffff" distance={10.5} />
+      <SpotL position={[3, 1.5, -6]} target={[0, 0.3, 0]} intensity={125 * on} color="#f2f5ff" distance={10.5} />
+      <LightCard color={ORANGE} i={0.42 * on} pos={[-2.4 + drift, 2.4, -9]} size={2.6} />
+      <LightCard color={PINK} i={0.38 * on} pos={[2.6 - drift, 0.6, -11]} size={2.8} />
+      <LightCard color="#ffffff" i={0.06 * on} pos={[0.2, 4.5, -14]} size={9} />
     </group>
   );
 };
 
 // --------------------------------------------------------------------------- beat 1-2: panel + orb
-const OrbPanel: React.FC<{ f: number }> = ({ f }) => {
+/** Bright light tubes behind the slab: seen sharp around it and refracted/frosted through it. */
+const LightTube: React.FC<{ pos: [number, number, number]; rot: number; len: number; color: string; i: number }> = ({ pos, rot, len, color, i }) => (
+  <mesh position={pos} rotation={[0, 0, rot]}>
+    <capsuleGeometry args={[0.045, len, 8, 24]} />
+    <meshBasicMaterial color={new THREE.Color(color).multiplyScalar(i)} toneMapped={false} />
+  </mesh>
+);
+
+const GlassPanel: React.FC<{ f: number }> = ({ f }) => {
   const rings = useTexture(staticFile('logo_rings.png'));
   rings.colorSpace = THREE.SRGBColorSpace;
-  const tIn = easeOut(prog(f, TL.b2 - 4, TL.b2 + 38));
+  const tIn = easeOut(prog(f, TL.b2 - 8, TL.b2 + 36));
   const bob = Math.sin(f * 0.05) * 0.05;
-  const y = lerp(-5.2, 0.15, tIn) + bob;
+  const y = lerp(-5.4, 0.1, tIn) + bob;
   const z = lerp(-3.5, 0, tIn);
-  const spin = f * 0.018;
-  const glow = 0.5 + 0.5 * smooth(prog(f, TL.b2 + 10, TL.b2 + 45));
+  const spin = f * 0.016;
+  const glow = smooth(prog(f, TL.b2 + 8, TL.b2 + 40));
   return (
-    <group position={[0, y, z]} rotation={[-0.16 + 0.12 * (1 - tIn), 0.32 - 0.25 * (1 - tIn) + 0.04 * Math.sin(f * 0.02), 0.04]}>
-      <RoundedBox args={[2.5, 3.6, 0.12]} radius={0.12} smoothness={6}>
-        <Glass roughness={0.34} thickness={0.6} tint="#f3ecff" />
-      </RoundedBox>
-      <group position={[0, 0, 0.62]}>
-        {/* real Athlo rings, glowing inside a clear glass orb */}
-        <mesh scale={1.02}>
-          <planeGeometry args={[1, 1]} />
-          <meshBasicMaterial map={rings} alphaTest={0.4} toneMapped={false} color={new THREE.Color(1, 1, 1).multiplyScalar(0.9 + 0.7 * glow)} />
-        </mesh>
-        <LightCard color={ORANGE} i={0.16 * glow} pos={[-0.15, 0, -0.08]} size={2.4} />
-        <LightCard color={PINK} i={0.14 * glow} pos={[0.2, 0, -0.1]} size={2.4} />
-        <mesh>
-          <sphereGeometry args={[0.66, 64, 48]} />
-          <Glass roughness={0.02} thickness={0.35} ior={1.25} tint="#fff6ee" />
-        </mesh>
-        {SPORTS.map((s, i) => {
-          const a = spin + (i / SPORTS.length) * Math.PI * 2;
-          const R = 1.62;
-          return (
-            <group key={s} position={[R * Math.cos(a), 0.38 * R * Math.sin(a), 0.75 * R * Math.sin(a)]} rotation={[0.2 * Math.sin(a), -a * 0.4, 0.15 * Math.cos(a)]} scale={0.42}>
-              <SportIcon sport={s} tint={i % 2 ? PINK : ORANGE} glow={0.22} />
-            </group>
-          );
-        })}
+    <group>
+      <group position={[0, y, -2.0 + z]} rotation={[0, 0.3, 0]}>
+        <LightTube pos={[-1.15, 0.1, 0]} rot={0.05} len={3.0} color="#ffffff" i={2.6 * tIn} />
+        <LightTube pos={[1.2, -0.1, -0.2]} rot={-0.05} len={3.2} color={ORANGE} i={2.4 * tIn} />
+        <LightTube pos={[0.0, -1.55, -0.1]} rot={Math.PI / 2} len={1.2} color={PINK} i={2.4 * tIn} />
       </group>
+      <group position={[0, y, z]} rotation={[-0.14 + 0.12 * (1 - tIn), 0.3 - 0.25 * (1 - tIn) + 0.04 * Math.sin(f * 0.02), 0.04]}>
+        <RoundedBox args={[2.4, 3.5, 0.14]} radius={0.14} smoothness={6}>
+          <meshPhysicalMaterial transmission={0.9} roughness={0.25} thickness={0.6} ior={1.45} color="#ffffff" clearcoat={1}
+            clearcoatRoughness={0.06} specularIntensity={1} envMapIntensity={1.6} attenuationColor="#ffffff" attenuationDistance={4} />
+        </RoundedBox>
+        {/* the real Athlo rings, glowing, printed straight onto the glass */}
+        <mesh position={[0, 0.05, 0.075]} scale={1.65}>
+          <planeGeometry args={[1, 1]} />
+          <meshBasicMaterial map={rings} transparent depthWrite={false} toneMapped={false}
+            color={new THREE.Color(1, 1, 1).multiplyScalar(0.95 + 0.75 * glow)} />
+        </mesh>
+      </group>
+      {SPORT_OBJS.map((k, i) => {
+        const a = spin + (i / SPORT_OBJS.length) * Math.PI * 2 + 0.5;
+        const enter = easeOut(prog(f, TL.b2 + i * 4, TL.b2 + 30 + i * 4));
+        return (
+          <group key={k} position={[1.42 * Math.cos(a), 1.95 * Math.sin(a) + (1 - enter) * -4, 0.6 + 0.95 * Math.cos(a)]}
+            rotation={[0.25 * Math.sin(f * 0.02 + i), f * 0.02 + i, 0.1 * Math.cos(f * 0.015 + i)]} scale={0.82 * enter}>
+            <SportObject kind={k} />
+          </group>
+        );
+      })}
     </group>
   );
 };
@@ -256,79 +272,75 @@ const Tunnel: React.FC = () => {
     t.anisotropy = 8;
   });
   const alpha = useRoundedAlpha();
-  const items = useMemo(() => {
-    const out: { pos: [number, number, number]; rot: [number, number, number]; k: number }[] = [];
-    let k = 0;
-    const W = 1.8;
-    const H = 2.5;
-    for (let i = 0; i < 34; i++) {
-      const z = 4 - i * 1.55;
-      for (const yy of [-1.2, 1.2]) {
-        out.push({ pos: [-W, yy, z + (yy > 0 ? 0.5 : 0)], rot: [0, Math.PI / 2, 0], k: k++ });
-        out.push({ pos: [W, yy, z + (yy > 0 ? 0 : 0.5)], rot: [0, -Math.PI / 2, 0], k: k++ });
-      }
-    }
-    for (let i = 0; i < 24; i++) {
-      const z = 4 - i * 2.35;
-      for (const xx of [-0.74, 0.74]) {
-        out.push({ pos: [xx, -H, z + (xx > 0 ? 1.1 : 0)], rot: [-Math.PI / 2, 0, 0], k: k++ });
-        out.push({ pos: [xx, H, z + (xx > 0 ? 0 : 1.1)], rot: [Math.PI / 2, 0, Math.PI], k: k++ });
-      }
-    }
-    return out;
-  }, []);
+  const W = 2.5;
+  const H = 2.6;
+  const items = useMemo(
+    () =>
+      tex.map((_, k) => {
+        const left = k % 2 === 0;
+        const z = 0.5 - Math.floor(k / 2) * 2.85 - (left ? 0 : 1.4);
+        // rotations keep the front face toward the centre of the tunnel: images upright, never mirrored
+        return { pos: [left ? -W : W, 0.15 * Math.sin(k * 1.7), z] as [number, number, number], rot: [0, left ? Math.PI / 2 : -Math.PI / 2, 0] as [number, number, number], k };
+      }),
+    [tex],
+  );
   return (
     <group>
       {items.map((it) => (
         <mesh key={it.k} position={it.pos} rotation={it.rot}>
-          <planeGeometry args={[1.38, 2.26]} />
-          <meshBasicMaterial map={tex[(it.k * 5 + Math.floor(it.k / 7)) % tex.length]} alphaMap={alpha} transparent color={new THREE.Color(0.6, 0.6, 0.62)} />
+          <planeGeometry args={[2.6, 2.6 * (1473 / 900)]} />
+          <meshBasicMaterial map={tex[it.k]} alphaMap={alpha} transparent color={new THREE.Color(0.7, 0.7, 0.7)} />
         </mesh>
       ))}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -H, -25]}>
+        <planeGeometry args={[2 * W, 70]} />
+        <meshStandardMaterial color="#34363c" roughness={0.18} metalness={0.2} envMapIntensity={0.6} />
+      </mesh>
+      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, H, -25]}>
+        <planeGeometry args={[2 * W, 70]} />
+        <meshStandardMaterial color="#2e3036" roughness={0.3} metalness={0.2} envMapIntensity={0.5} />
+      </mesh>
       {/* brand light rails along the tunnel edges */}
       {[
-        [-1.78, -2.48, ORANGE],
-        [1.78, -2.48, PINK],
-        [-1.78, 2.48, PINK],
-        [1.78, 2.48, ORANGE],
+        [-W + 0.02, -H + 0.02, ORANGE],
+        [W - 0.02, -H + 0.02, PINK],
+        [-W + 0.02, H - 0.02, '#ffffff'],
+        [W - 0.02, H - 0.02, ORANGE],
       ].map(([x, y, c], i) => (
         <mesh key={i} position={[x as number, y as number, -30]}>
-          <boxGeometry args={[0.02, 0.02, 70]} />
-          <meshBasicMaterial color={new THREE.Color(c as string).multiplyScalar(2.2)} toneMapped={false} />
+          <boxGeometry args={[0.025, 0.025, 70]} />
+          <meshBasicMaterial color={new THREE.Color(c as string).multiplyScalar(2.6)} toneMapped={false} />
         </mesh>
       ))}
-      <LightCard color={ORANGE} i={0.5} pos={[-0.4, 0.4, -58]} size={6} />
-      <LightCard color={PINK} i={0.45} pos={[0.5, -0.3, -59]} size={6} />
+      <LightCard color={ORANGE} i={0.5} pos={[-0.4, 0.4, -30]} size={5} />
+      <LightCard color={PINK} i={0.45} pos={[0.5, -0.3, -31]} size={5} />
     </group>
   );
 };
 
 // --------------------------------------------------------------------------- beat 4: drifting glass tiles
 const TILE_POS: [number, number, number][] = [
-  [-1.2, 1.75, -0.6],
-  [1.25, 1.55, -2.6],
-  [1.15, -1.75, 0.4],
-  [-1.3, -1.6, -2.2],
-  [0.15, 3.3, -6.0],
-  [-0.4, -3.5, -5.5],
-  [2.2, 0.1, -7.5],
-  [-2.3, 0.2, -6.8],
+  [-0.95, 1.85, -0.4],
+  [1.05, 1.55, -2.4],
+  [0.95, -1.75, 0.3],
+  [-1.05, -1.7, -1.6],
+  [0.15, 3.6, -5.2],
 ];
 const Tiles: React.FC<{ f: number }> = ({ f }) => {
   const t = f - TL.b4;
   return (
     <group>
       {TILE_POS.map((p, i) => {
-        const s = SPORTS[i % SPORTS.length];
         const dz = t * (0.012 + 0.01 * rand(i));
         return (
           <group key={i} position={[p[0] + Math.sin(t * 0.03 + i) * 0.08, p[1] + t * 0.004 * (i % 2 ? 1 : -1), p[2] + dz]}
-            rotation={[0.25 * Math.sin(i * 2.1) + t * 0.002, -0.45 * Math.sign(p[0]) + t * 0.006 * (i % 2 ? 1 : -1), 0.08 * Math.sin(i)]}>
-            <RoundedBox args={[1.05, 1.05, 0.2]} radius={0.17} smoothness={5}>
-              <Glass roughness={0.32} thickness={0.45} tint="#f4f2f7" />
+            rotation={[0.18 * Math.sin(i * 2.1) + t * 0.002, -0.35 * Math.sign(p[0]) + t * 0.006 * (i % 2 ? 1 : -1), 0.06 * Math.sin(i)]}>
+            <RoundedBox args={[1.4, 1.4, 0.18]} radius={0.2} smoothness={5}>
+              <meshPhysicalMaterial transmission={0.9} roughness={0.25} thickness={0.5} ior={1.45} color="#ffffff" clearcoat={1}
+                clearcoatRoughness={0.06} envMapIntensity={1.6} />
             </RoundedBox>
-            <group position={[0, 0, 0.24]} scale={0.56}>
-              <SportIcon sport={s} tint={i % 2 ? PINK : ORANGE} glow={0.14} />
+            <group position={[0, 0, 0.5]} rotation={[0, t * 0.03, 0]} scale={0.88}>
+              <SportObject kind={SPORT_OBJS[i]} />
             </group>
           </group>
         );
@@ -395,7 +407,7 @@ const PillCounter: React.FC<{ f: number }> = ({ f }) => {
       <group scale={0.8} position={[0, 0.25 + lift + (1 - intro) * -0.6, (1 - intro) * -1.2]} rotation={[0.1 - 0.06 * fill, -0.18 + 0.2 * fill, 0]}>
         <mesh rotation={[0, 0, Math.PI / 2]} scale={[1, 1, 0.42]}>
           <capsuleGeometry args={[0.46, 2.15, 24, 64]} />
-          <Glass roughness={0.26} thickness={0.7} tint="#fff3ea" />
+          <meshPhysicalMaterial transmission={0.9} roughness={0.25} thickness={0.7} ior={1.45} color="#ffffff" clearcoat={1} clearcoatRoughness={0.06} envMapIntensity={1.6} />
         </mesh>
         {/* track + glowing progress line inside the glass */}
         <mesh position={[0, -0.24, 0]} rotation={[0, 0, Math.PI / 2]}>
@@ -495,25 +507,27 @@ export const Scene: React.FC = () => {
   const inLogo = f >= TL.b7 && f < TL.b8;
   const inEnd = f >= TL.b8;
   // studio lights bloom on over the first second, stay on after
-  const on = inA ? 0.18 + 0.82 * smooth(prog(f, 2, 34)) : inLogo ? 0.55 : 1;
+  const on = inA ? 0.55 + 0.45 * smooth(prog(f, 0, 24)) : inLogo ? 0.6 : 1;
   return (
     <>
       <CameraRig />
       <Settle passes={3} />
       <Environment resolution={256} frames={1} background={false}>
-        <Lightformer form="rect" intensity={2.2} color="#ffffff" scale={[10, 2.5, 1]} position={[0, 5, 1]} rotation={[Math.PI / 2, 0, 0]} />
-        <Lightformer form="rect" intensity={3} color={ORANGE} scale={[3, 8, 1]} position={[-6, 1, 1]} rotation={[0, Math.PI / 2, 0]} />
-        <Lightformer form="rect" intensity={2.6} color={PINK} scale={[3, 8, 1]} position={[6, 0, 0]} rotation={[0, -Math.PI / 2, 0]} />
-        <Lightformer form="ring" intensity={1.4} color="#ffffff" scale={3} position={[0, 0, 8]} />
-        <Lightformer form="rect" intensity={0.6} color="#9aa0ad" scale={[20, 6, 1]} position={[0, -3, -8]} />
+        <Lightformer form="rect" intensity={4.5} color="#ffffff" scale={[10, 2.5, 1]} position={[0, 5, 1]} rotation={[Math.PI / 2, 0, 0]} />
+        <Lightformer form="rect" intensity={3.5} color={ORANGE} scale={[3, 8, 1]} position={[-6, 1, 1]} rotation={[0, Math.PI / 2, 0]} />
+        <Lightformer form="rect" intensity={3.2} color={PINK} scale={[3, 8, 1]} position={[6, 0, 0]} rotation={[0, -Math.PI / 2, 0]} />
+        <Lightformer form="rect" intensity={6} color="#ffffff" scale={[1.2, 10, 1]} position={[-3, 0, -7]} />
+        <Lightformer form="rect" intensity={6} color="#ffffff" scale={[1.2, 10, 1]} position={[3, 0, -7]} />
+        <Lightformer form="ring" intensity={2} color="#ffffff" scale={3} position={[0, 0, 8]} />
+        <Lightformer form="rect" intensity={1.2} color="#b8bdc8" scale={[20, 6, 1]} position={[0, -3, -8]} />
       </Environment>
-      <ambientLight intensity={0.15} />
-      <fog attach="fog" args={['#25262b', 7, inTunnel ? 70 : 26]} />
-      <hemisphereLight args={['#4a4b52', '#2a2b30', 0.6]} />
+      <ambientLight intensity={0.08} />
+      <fog attach="fog" args={['#3f4148', 9, inTunnel ? 70 : 34]} />
+      <hemisphereLight args={['#c9ccd6', '#3a3c42', 0.3]} />
       <Backdrop on={inTunnel ? 0.7 : on} />
       {!inTunnel && <Studio on={on} f={f} />}
       <group visible={inA}>
-        <OrbPanel f={f} />
+        <GlassPanel f={f} />
       </group>
       {inTunnel && <Tunnel />}
       <group visible={inTiles}>{inTiles && <Tiles f={f} />}</group>
@@ -522,9 +536,9 @@ export const Scene: React.FC = () => {
       <group visible={inEnd}>{inEnd && <EndLogo f={f} />}</group>
       <EffectComposer multisampling={4}>
         <DepthOfField worldFocusDistance={s.focus} worldFocusRange={s.range} bokehScale={s.bokeh} />
-        <Bloom mipmapBlur luminanceThreshold={0.82} luminanceSmoothing={0.2} intensity={0.85} radius={0.72} />
-        <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
-        <Vignette offset={0.35} darkness={0.32} />
+        <Bloom mipmapBlur luminanceThreshold={1.0} luminanceSmoothing={0.15} intensity={0.9} radius={0.7} />
+        <ToneMapping mode={ToneMappingMode.NEUTRAL} />
+        <Vignette offset={0.4} darkness={0.22} />
         <Noise premultiply={false} blendFunction={BlendFunction.SOFT_LIGHT} opacity={0.38} />
       </EffectComposer>
     </>
