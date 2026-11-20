@@ -40,12 +40,26 @@ full.crop((0, 0, split, full.height)).save(os.path.join(W, "logo_rings.png"))
 full.crop((split, 0, full.width, full.height)).save(os.path.join(W, "logo_word.png"))
 print("logo", full.size, "split at", split)
 
-# ---------------------------------------------------------------- photos from the recording
-crops = {"tennis": (1.5, (48, 1290, 1158, 1980)), "night": (3.0, (48, 620, 1158, 1310)),
-         "padel": (4.0, (48, 590, 1090, 1250)), "hoop": (4.5, (48, 1110, 1158, 1770)),
-         "grass": (6.0, (48, 1630, 1158, 2240))}
-for k, (t, b) in crops.items():
-    frame(t).crop(b).save(os.path.join(W, f"photo_{k}.png"))
+# ---------------------------------------------------------------- real UI details
+# Crops of the real app used for the zoomed detail shots. Nothing here is invented.
+import json
+ui = {
+    "hero":   (0.3, (48, 402, 1158, 1600)),    # "Find your next game..." + Book courts copy + Find a facility
+    "places": (9.4, (30, 380, 1170, 1330)),    # Places to play, search, sport chips, "13 places"
+    "chips":  (1.0, (30, 1470, 1130, 1860)),   # Pick your play / What are you into? + chips
+    "menu_train":   (7.4, (330, 760, 1206, 1279)),    # Find players / Clubs / Events
+    "menu_compete": (7.4, (330, 931, 1206, 1450)),    # Clubs / Events / Challenges
+}
+for k, (t, b) in ui.items():
+    frame(t).crop(b).save(os.path.join(W, f"ui_{k}.png"))
+# Football chip box inside the chips crop, for the tap animation
+f = np.array(frame(1.0)).astype(int)
+reg = f[1700:1860, 0:396]
+m = (np.abs(reg - np.array([232, 230, 225])).max(axis=2) < 9)
+ys, xs = np.where(m)
+box = [int(xs.min()) - 30, int(ys.min()) + 1700 - 1470, int(xs.max()) + 1 - 30, int(ys.max()) + 1 + 1700 - 1470]
+json.dump({"football_chip": box}, open(os.path.join(W, "ui_boxes.json"), "w"))
+print("football chip", box)
 
 # ---------------------------------------------------------------- stitched home page
 # The recording scrolls fast; stitch three frames into one tall page so we can scroll it

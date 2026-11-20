@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Athlo launch film - picture renderer.
+"""Athlo launch film (30 s cut) - picture renderer.
 
 Renders 1080x1920 @ 30 fps frames with Pillow + numpy and pipes them to ffmpeg.
 Usage: python3 src/film.py [--frames a:b] [--still t1,t2,...] [--workers 4]
@@ -7,7 +7,7 @@ Usage: python3 src/film.py [--frames a:b] [--still t1,t2,...] [--workers 4]
 import argparse, math, os, random, subprocess, sys
 from functools import lru_cache
 import numpy as np
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from timeline import *  # noqa
@@ -190,43 +190,6 @@ def glow_field(blobs):
     img = Image.fromarray(np.clip(acc + np.array(BG, np.float32), 0, 255).astype(np.uint8), "RGB")
     return img.resize((W, H), Image.BICUBIC)
 
-def scene_glows(t):
-    """Soft orange-to-pink light that breathes through the film."""
-    bl = []
-    dr = lambda f, a: math.sin(t * f) * a
-    if t < S2:  # opening: a whisper of light under the line
-        a = 0.10 * e_sine(prog(t, 0.2, 2.5)) * (1 - prog(t, 4.2, 0.8))
-        bl += [(380 + dr(0.4, 40), 1180, 420, ORANGE, a), (720 + dr(0.3, 40), 1260, 420, PINK, a * 0.9)]
-    elif t < S3:
-        a = 0.10 + 0.05 * prog(t, S2, 3)
-        burst = 0.0
-        if t > MERGE - 0.15:
-            burst = math.exp(-max(0, t - MERGE) * 3.0) * prog(t, MERGE - 0.15, 0.15)
-        settle = e_out3(prog(t, MERGE, 1.5))
-        a2 = a + 0.22 * settle
-        fade = 1 - e_sine(prog(t, S2_OUT, 0.55))
-        bl += [(300 + dr(0.35, 60), 760 + dr(0.27, 80), 460, ORANGE, a2 * fade),
-               (800 + dr(0.3, 60), 1400 + dr(0.22, 80), 480, PINK, a2 * fade),
-               (540, 1100, 260 + 300 * burst, (255, 120, 80), 0.9 * burst)]
-    elif t < LANDS[0] - SLIDE:
-        k = prog(t, S3, 7.5)
-        a = (0.16 + 0.10 * e_sine(prog(t, S3, 1.0))) * (1 - 0.6 * e_sine(prog(t, S3_OUT, 0.9)))
-        bl += [(lerp(250, 760, k), 700 + dr(0.4, 60), 480, ORANGE, a),
-               (lerp(850, 330, k), 1350 + dr(0.35, 60), 520, PINK, a * 1.1)]
-        if t > WORDS[4]:
-            b = 0.10 * e_out3(prog(t, WORDS[4], 0.8)) * (1 - prog(t, S3_OUT, 0.6))
-            bl.append((380, 1250, 300, PINK, b))
-    elif t < LOGO:
-        a = 0.26 * e_sine(prog(t, LANDS[0] - SLIDE, 1.0)) * (1 - 0.5 * e_sine(prog(t, S4_OUT, 0.7)))
-        bl += [(330 + dr(0.3, 70), 900 + dr(0.25, 90), 430, ORANGE, a),
-               (760 + dr(0.28, 70), 1350 + dr(0.2, 90), 460, PINK, a * 1.1)]
-    else:
-        a = 0.30 * e_sine(prog(t, LOGO - 0.3, 1.4))
-        bl += [(370 + dr(0.25, 30), 760, 330, ORANGE, a),
-               (700 + dr(0.22, 30), 820, 360, PINK, a),
-               (540, 1250 + dr(0.2, 40), 600, (255, 80, 70), a * 0.35)]
-    return bl
-
 _vig = None
 def vignette():
     global _vig
@@ -241,7 +204,7 @@ def grain(i):
     global _grain
     if _grain is None:
         rng = np.random.default_rng(7)
-        _grain = [rng.normal(0, 1.6, (H, W, 1)).astype(np.float32) for _ in range(6)]
+        _grain = [rng.normal(0, 1.0, (H, W, 1)).astype(np.float32) for _ in range(6)]
     return _grain[i % 6]
 
 # ------------------------------------------------------------------ assets
@@ -407,282 +370,6 @@ def real_app_screen(scroll):
     im.paste(crop, (0, px(CONTENT_Y)))
     return finish_screen(im)
 
-def card_shadow(im, box, r):
-    sh = Image.new("RGBA", im.size, (0, 0, 0, 0))
-    SD(sh).rounded_rectangle((box[0], box[1] + 4, box[2], box[3] + 4), r, fill=(40, 30, 10, 26))
-    im.alpha_composite(sh.filter(ImageFilter.GaussianBlur(6 * U)))
-
-def with_opacity(layer, op):
-    if op < 1:
-        layer.putalpha(layer.getchannel("A").point(lambda v: int(v * op)))
-    return layer
-
-def facility_card(size, y, ph, name, area, rating, tag, price, op=1.0, h=272):
-    x0, x1 = 16, SW - 16
-    layer = Image.new("RGBA", size, (0, 0, 0, 0))
-    card_shadow(layer, (x0, y, x1, y + h), 22)
-    d = SD(layer)
-    d.rounded_rectangle((x0, y, x1, y + h), 22, fill=WHITE)
-    pw, phh = x1 - x0, 168
-    p = uphoto(ph, pw, phh).convert("RGBA")
-    m = umask(pw, phh + 40, 22).crop((0, 0, p.width, p.height))
-    p.putalpha(m)
-    comp(layer, p, x0, y)
-    d.text((x0 + 18, y + phh + 16), name, font=F("Inter-SemiBold", 18), fill=DARK)
-    d.text((x0 + 18, y + phh + 42), area, font=F("Inter-Regular", 13), fill=GRAY)
-    d.rounded_rectangle((x1 - 76, y + phh + 14, x1 - 16, y + phh + 40), 13, fill=(253, 241, 205))
-    star(d, x1 - 60, y + phh + 27, 6.5, YELLOW)
-    d.text((x1 - 50, y + phh + 27), rating, font=F("Inter-SemiBold", 13), fill=DARK, anchor="lm")
-    tw = FL("Inter-Medium", 11, tag) + 20
-    d.rounded_rectangle((x0 + 18, y + h - 34, x0 + 18 + tw, y + h - 12), 11, fill=CHIP)
-    d.text((x0 + 28, y + h - 23), tag, font=F("Inter-Medium", 11), fill=DARK, anchor="lm")
-    ui_text(d, (x1 - 18, y + h - 23), price, "Inter-SemiBold", 13, DARK, "rm")
-    ui_text(d, (x1 - 20 - FL("Inter-SemiBold", 13, price), y + h - 23), "from ", "Inter-Regular", 12, GRAY, "rm")
-    d.rounded_rectangle((x0 + 12, y + 12, x0 + 92, y + 34), 11, fill=YELLOW)
-    ui_text(d, (x0 + 52, y + 23), "FEATURED", "Inter-Bold", 9, DARK, "mm", tracking=1.2)
-    return with_opacity(layer, op)
-
-def kicker_title(d, kicker, title, accent=None, y=CONTENT_Y + 22):
-    ui_text(d, (20, y), kicker, "Inter-Medium", 11, (110, 114, 118), "lt", tracking=2.4)
-    d.text((20, y + 22), title, font=F("InterDisplay-SemiBold", 29), fill=DARK)
-    if accent:
-        x = 20 + FL("InterDisplay-SemiBold", 29, title + " ")
-        d.text((x, y + 22), accent, font=F("InterDisplay-SemiBold", 29), fill=YELLOW)
-
-def chips(d, y, labels, active):
-    x = 16
-    for i, c in enumerate(labels):
-        w = FL("Inter-Medium", 13, c) + 30
-        d.rounded_rectangle((x, y, x + w, y + 34), 17, fill=YELLOW if i == active else CHIP)
-        d.text((x + w / 2, y + 17), c, font=F("Inter-Medium", 13), fill=DARK, anchor="mm")
-        x += w + 8
-
-def screen_find(lt):
-    """1. Find a court: search types, results rise in."""
-    im = screen_base()
-    d = SD(im)
-    kicker_title(d, "FIND A COURT", "Places to", "play")
-    y = CONTENT_Y + 88
-    d.rounded_rectangle((16, y, SW - 16, y + 46), 23, fill=WHITE, outline=LINEC, width=1)
-    d.ellipse((34, y + 15, 46, y + 27), outline=GRAY, width=2)
-    d.line([(44, y + 26), (49, y + 31)], fill=GRAY, width=2)
-    query = "Padel, Dubai Marina"
-    n = int(len(query) * clamp((lt + 0.25) / 0.7))
-    if n == 0:
-        d.text((60, y + 23), "Search by name or area", font=F("Inter-Regular", 14), fill=(150, 152, 155), anchor="lm")
-        cx = 60
-    else:
-        cx = 60 + ui_text(d, (60, y + 23), query[:n], "Inter-Medium", 14, DARK, "lm")
-    if (lt * 2.2) % 1 < 0.6 and lt < 0.9:
-        d.line([(cx + 2, y + 13), (cx + 2, y + 33)], fill=YELLOW, width=2)
-    y2 = y + 62
-    act = lt > 0.45
-    chips(d, y2, ["All sports", "Padel", "Tennis", "Football", "Basketball"], 1 if act else 0)
-    d.text((20, y2 + 56), "3 places near you" if act else "13 places", font=F("Inter-SemiBold", 15), fill=DARK)
-    d.text((SW - 20, y2 + 58), "Sorted by distance", font=F("Inter-Regular", 11), fill=GRAY, anchor="ra")
-    cards = [("padel", "Padel Point Marina", "Dubai Marina, Dubai", "4.5", "Padel", "AED 130"),
-             ("tennis", "Safa Racket Club", "Al Safa, Dubai", "5.0", "Padel  ·  Tennis", "AED 70"),
-             ("night", "The Cage JLT", "Jumeirah Lake Towers", "4.5", "Football", "AED 240")]
-    for i, c in enumerate(cards):
-        k = e_out(prog(lt, 0.5 + i * 0.14, 0.75))
-        if k <= 0:
-            continue
-        cy = y2 + 92 + i * 290 + (1 - k) * 46
-        im.alpha_composite(facility_card(im.size, cy, *c, op=k))
-    return finish_screen(im)
-
-def press(lt, t0, amt=0.06):
-    return 1 - amt * math.sin(math.pi * prog(lt, t0, 0.22))
-
-def screen_book(lt):
-    """2. Book it: pick a day, pick a slot, confirm."""
-    im = screen_base()
-    comp(im, uphoto("padel", SW, 250).convert("RGBA"), 0, CONTENT_Y - 6)
-    d = SD(im)
-    y = CONTENT_Y + 262
-    d.text((20, y), "Padel Point Marina", font=F("InterDisplay-SemiBold", 26), fill=DARK)
-    d.text((20, y + 36), "Dubai Marina  ·  Padel  ·  Court 2", font=F("Inter-Regular", 13), fill=GRAY)
-    d.rounded_rectangle((SW - 82, y + 4, SW - 20, y + 30), 13, fill=(253, 241, 205))
-    star(d, SW - 66, y + 17, 6.5, YELLOW)
-    d.text((SW - 56, y + 17), "4.5", font=F("Inter-SemiBold", 13), fill=DARK, anchor="lm")
-    y += 76
-    ui_text(d, (20, y), "PICK A DAY", "Inter-Medium", 11, (110, 114, 118), "lt", tracking=2.2)
-    days = [("FRI", "20"), ("SAT", "21"), ("SUN", "22"), ("MON", "23"), ("TUE", "24")]
-    bw = (SW - 32 - 4 * 8) / 5
-    sel = 1 if lt > 0.3 else 0
-    for i, (a, b) in enumerate(days):
-        x = 16 + i * (bw + 8)
-        on = i == sel
-        sc = press(lt, 0.2) if i == 1 else 1.0
-        ww, hh = bw * sc, 74 * sc
-        bx0, by0 = x + (bw - ww) / 2, y + 22 + (74 - hh) / 2
-        d.rounded_rectangle((bx0, by0, bx0 + ww, by0 + hh), 18, fill=DARK if on else WHITE,
-                            outline=None if on else LINEC, width=1)
-        d.text((x + bw / 2, y + 44), a, font=F("Inter-Medium", 11), fill=(170, 180, 185) if on else GRAY, anchor="mm")
-        d.text((x + bw / 2, y + 72), b, font=F("Inter-SemiBold", 21), fill=WHITE if on else DARK, anchor="mm")
-    y += 120
-    ui_text(d, (20, y), "PICK A TIME", "Inter-Medium", 11, (110, 114, 118), "lt", tracking=2.2)
-    slots = ["5:00 PM", "6:00 PM", "7:00 PM", "8:00 PM", "9:00 PM", "10:00 PM"]
-    full = {1, 4}
-    sw_ = (SW - 32 - 2 * 10) / 3
-    pick = lt > 0.85
-    for i, s in enumerate(slots):
-        cx = 16 + (i % 3) * (sw_ + 10)
-        cy = y + 22 + (i // 3) * 58
-        sc = press(lt, 0.75) if i == 3 else 1.0
-        ww, hh = sw_ * sc, 48 * sc
-        bx0, by0 = cx + (sw_ - ww) / 2, cy + (48 - hh) / 2
-        if i in full:
-            d.rounded_rectangle((bx0, by0, bx0 + ww, by0 + hh), 14, fill=(236, 234, 229))
-            d.text((cx + sw_ / 2, cy + 24), s, font=F("Inter-Medium", 14), fill=(185, 185, 185), anchor="mm")
-            d.line([(cx + sw_ / 2 - 30, cy + 24), (cx + sw_ / 2 + 30, cy + 24)], fill=(185, 185, 185), width=1)
-        else:
-            on = i == 3 and pick
-            d.rounded_rectangle((bx0, by0, bx0 + ww, by0 + hh), 14, fill=YELLOW if on else WHITE,
-                                outline=None if on else LINEC, width=1)
-            d.text((cx + sw_ / 2, cy + 24), s, font=F("Inter-SemiBold" if on else "Inter-Medium", 14), fill=DARK, anchor="mm")
-    y += 150
-    d.line([(20, y), (SW - 20, y)], fill=LINEC, width=1)
-    d.text((20, y + 18), "Sat 21 Nov  ·  8:00 PM  ·  60 min", font=F("Inter-Medium", 14), fill=DARK if pick else GRAY)
-    d.text((SW - 20, y + 18), "AED 130", font=F("Inter-SemiBold", 14), fill=DARK, anchor="ra")
-    by = SH - 112
-    done = lt > 1.55
-    bp = press(lt, 1.42, 0.04)
-    bw2, bh = (SW - 32) * bp, 58 * bp
-    bx = (SW - bw2) / 2
-    d.rounded_rectangle((bx, by + (58 - bh) / 2, bx + bw2, by + (58 + bh) / 2), 29, fill=YELLOW if done else DARK)
-    if done:
-        tw = FL("Inter-SemiBold", 17, "Court booked")
-        check(d, SW / 2 - tw / 2 - 16, by + 21, 15, DARK, 3)
-        d.text((SW / 2 + 10, by + 29), "Court booked", font=F("Inter-SemiBold", 17), fill=DARK, anchor="mm")
-    else:
-        d.text((SW / 2, by + 29), "Book now  ·  AED 130", font=F("Inter-SemiBold", 17), fill=WHITE, anchor="mm")
-    return finish_screen(im)
-
-AV_COLS = [(66, 135, 120), (230, 120, 70), (110, 100, 190), (60, 120, 190), (200, 80, 120),
-           (150, 160, 60), (90, 90, 100), (220, 160, 40), (40, 150, 160), (170, 90, 60)]
-
-def avatar(d, cx, cy, r, ini, col, ring=CREAM):
-    d.ellipse((cx - r - 2, cy - r - 2, cx + r + 2, cy + r + 2), fill=ring)
-    d.ellipse((cx - r, cy - r, cx + r, cy + r), fill=col)
-    d.text((cx, cy + 0.5), ini, font=F("Inter-SemiBold", r * 0.8), fill=WHITE, anchor="mm")
-
-def game_card(im, y, thumb, title, where, have, need, level, jk=None):
-    x0, x1, h = 16, SW - 16, 226
-    card_shadow(im, (x0, y, x1, y + h), 22)
-    d = SD(im)
-    d.rounded_rectangle((x0, y, x1, y + h), 22, fill=WHITE)
-    th = uphoto(thumb, 56, 56).convert("RGBA")
-    th.putalpha(umask(56, 56, 16))
-    comp(im, th, x0 + 16, y + 16)
-    d.text((x0 + 86, y + 20), title, font=F("Inter-SemiBold", 17), fill=DARK)
-    d.text((x0 + 86, y + 46), where, font=F("Inter-Regular", 13), fill=GRAY)
-    lw = FL("Inter-Medium", 11, level) + 20
-    d.rounded_rectangle((x1 - 16 - lw, y + 18, x1 - 16, y + 40), 11, fill=CHIP)
-    d.text((x1 - 16 - lw / 2, y + 29), level, font=F("Inter-Medium", 11), fill=DARK, anchor="mm")
-    k = jk or 0.0
-    joined = k > 0.25
-    cnt = have + (1 if joined else 0)
-    ay = y + 106
-    shown = min(have, 6)
-    for i in range(shown):
-        avatar(d, x0 + 32 + i * 26, ay, 16, "ABCDEFGHJKLMNOPRS"[(i * 5 + have) % 17], AV_COLS[(i + have) % 10], WHITE)
-    if k > 0:
-        r = 16 * e_out(clamp((k - 0.2) * 1.6))
-        if r > 0.5:
-            cx = x0 + 32 + shown * 26
-            d.ellipse((cx - r - 2, ay - r - 2, cx + r + 2, ay + r + 2), fill=WHITE)
-            g = grad_disc(r)
-            im.alpha_composite(g, (px(cx) - g.width // 2, px(ay) - g.height // 2))
-            if r > 9:
-                d.text((cx, ay), "You", font=F("Inter-Bold", r * 0.62), fill=WHITE, anchor="mm")
-    d.text((x1 - 16, ay), f"{cnt} / {need} players", font=F("Inter-SemiBold", 14), fill=DARK, anchor="rm")
-    py = y + 142
-    d.rounded_rectangle((x0 + 16, py, x1 - 16, py + 6), 3, fill=CHIP)
-    fr = (have + e_out(clamp((k - 0.2) * 1.4))) / need
-    d.rounded_rectangle((x0 + 16, py, x0 + 16 + (x1 - x0 - 32) * fr, py + 6), 3, fill=YELLOW)
-    by = y + 166
-    pr = 1 - 0.05 * math.sin(math.pi * clamp(k / 0.25)) if jk is not None else 1.0
-    bw, bh = (x1 - x0 - 32) * pr, 44 * pr
-    bx = x0 + 16 + (x1 - x0 - 32 - bw) / 2
-    d.rounded_rectangle((bx, by + (44 - bh) / 2, bx + bw, by + (44 + bh) / 2), 22, fill=YELLOW if joined else DARK)
-    if joined:
-        tw = FL("Inter-SemiBold", 15, "You're in")
-        check(d, SW / 2 - tw / 2 - 14, by + 15, 13, DARK, 3)
-        d.text((SW / 2 + 9, by + 22), "You're in", font=F("Inter-SemiBold", 15), fill=DARK, anchor="mm")
-    else:
-        d.text((SW / 2, by + 22), "Join game", font=F("Inter-SemiBold", 15), fill=WHITE, anchor="mm")
-
-def screen_join(lt):
-    """3. Join a game: tap Join, you're in."""
-    im = screen_base()
-    d = SD(im)
-    kicker_title(d, "FIND PLAYERS", "Open games", "near you")
-    y = CONTENT_Y + 92
-    chips(d, y, ["Tonight", "This week", "Football", "Padel", "Basketball"], 0)
-    jk = clamp((lt - 0.75) / 0.6)
-    game_card(im, y + 54, "night", "5-a-side football", "The Cage JLT  ·  Tonight, 8:00 PM", 8, 10, "All levels",
-              jk=jk if lt > 0.75 else None)
-    game_card(im, y + 298, "padel", "Doubles padel", "Padel Point Marina  ·  9:30 PM", 3, 4, "Intermediate")
-    game_card(im, y + 542, "hoop", "Pickup basketball", "Hoop House, Al Quoz  ·  10:00 PM", 6, 10, "All levels")
-    return finish_screen(im)
-
-BOARD = [("Sara K.", "Padel", 3120), ("Omar H.", "Football", 2890), ("Lina M.", "Running", 2610),
-         ("Arjun P.", "Tennis", 2350), ("Maya R.", "Padel", 2280), ("Yusuf A.", "Basketball", 2140)]
-
-def screen_board(lt):
-    """4. Climb the leaderboard: your row rises from #7 to #3."""
-    im = screen_base()
-    d = SD(im)
-    kicker_title(d, "DUBAI FITNESS 30X30", "Leaderboard")
-    y = CONTENT_Y + 92
-    d.rounded_rectangle((16, y, SW - 16, y + 40), 20, fill=CHIP)
-    half = (SW - 32) / 2
-    d.rounded_rectangle((19, y + 3, 16 + half - 3, y + 37), 17, fill=WHITE)
-    d.text((16 + half / 2, y + 20), "This week", font=F("Inter-SemiBold", 13), fill=DARK, anchor="mm")
-    d.text((16 + half * 1.5, y + 20), "All time", font=F("Inter-Medium", 13), fill=GRAY, anchor="mm")
-    k = e_io(prog(lt, 0.35, 1.3))
-    pts = int(lerp(1980, 2640, k))
-    you_pos = lerp(6, 2, k)
-    rank = int(round(you_pos)) + 1
-    y += 56
-    d.rounded_rectangle((16, y, SW - 16, y + 120), 22, fill=DARK)
-    for x, lab in [(34, "YOUR RANK"), (200, "POINTS"), (360, "STREAK")]:
-        ui_text(d, (x, y + 22), lab, "Inter-Medium", 10, (150, 165, 170), "lt", tracking=2.0)
-    d.text((32, y + 40), f"#{rank}", font=F("InterDisplay-Bold", 50), fill=YELLOW)
-    d.text((198, y + 44), f"{pts:,}", font=F("InterDisplay-SemiBold", 30), fill=WHITE)
-    d.text((358, y + 44), "12 days", font=F("InterDisplay-SemiBold", 30), fill=WHITE)
-    if 7 - rank > 0:
-        d.text((104, y + 72), f"↑ {7 - rank}", font=F("Inter-SemiBold", 15), fill=(110, 215, 155))
-    y0 = y + 140
-    rh = 66
-    rows = []
-    for i, (n, s, p) in enumerate(BOARD):
-        shift = clamp((i + 1) - you_pos) if i >= 2 else 0.0
-        rows.append((i + shift, n, s, p, False))
-    rows.append((you_pos, "You", "Padel  ·  Football", pts, True))
-    for pos, n, s, p, me in sorted(rows, key=lambda r: r[4]):
-        ry = y0 + pos * rh
-        if me:
-            card_shadow(im, (12, ry, SW - 12, ry + rh - 6), 18)
-            d = SD(im)
-            d.rounded_rectangle((12, ry, SW - 12, ry + rh - 6), 18, fill=WHITE, outline=PINK, width=2)
-        r_disp = int(round(pos)) + 1
-        d.text((40, ry + 30), str(r_disp), font=F("InterDisplay-SemiBold", 18),
-               fill=YELLOW if r_disp <= 3 else GRAY, anchor="mm")
-        if me:
-            g = grad_disc(20)
-            im.alpha_composite(g, (px(86) - g.width // 2, px(ry + 30) - g.height // 2))
-            d.text((86, ry + 30), "You", font=F("Inter-Bold", 12), fill=WHITE, anchor="mm")
-        else:
-            avatar(d, 86, ry + 30, 20, n[0] + n.split()[1][0], AV_COLS[len(n) % 10], CREAM)
-        d.text((118, ry + 14), n, font=F("Inter-SemiBold", 16), fill=DARK)
-        d.text((118, ry + 36), s, font=F("Inter-Regular", 12), fill=GRAY)
-        d.text((SW - 30, ry + 30), f"{p:,}", font=F("Inter-SemiBold", 16), fill=DARK, anchor="rm")
-        if not me:
-            d.line([(30, ry + rh - 3), (SW - 30, ry + rh - 3)], fill=LINEC, width=1)
-    return finish_screen(im)
-
 @lru_cache(None)
 def phone_frame():
     k = 3
@@ -755,8 +442,8 @@ def sheet():
     im = rrect_img(w + 20, h + 20, 16, (245, 245, 243, 255))
     d = ImageDraw.Draw(im)
     d.text((22, 20), "court_bookings_FINAL_v3.xlsx", font=F("Inter-Medium", 22), fill=(90, 90, 96))
-    data = [["Player", "Paid", "Slot", "Court"], ["Omar", "AED 40", "8pm?", "#2"], ["Sara", "-", "9pm", "??"],
-            ["Karim", "AED 40", "8pm", "#2"], ["Lina", "-", "?", ""], ["Arjun", "AED 60", "7pm", "#1"],
+    data = [["Player", "Paid", "Slot", "Court"], ["Omar", "yes", "8pm?", "#2"], ["Sara", "-", "9pm", "??"],
+            ["Karim", "yes", "8pm", "#2"], ["Lina", "-", "?", ""], ["Arjun", "yes?", "7pm", "#1"],
             ["Maya", "", "", ""]]
     y = 64
     for r, row in enumerate(data):
@@ -801,202 +488,317 @@ def notif(app, msg):
 
 @lru_cache(None)
 def clutter():
-    """(sprite, x, y, depth) - scattered fragments of how sport is organised today."""
+    """Fragments of how sport is organised today. Each flies in and lands on a growing pile.
+    (sprite, x, y, depth, land_time, phase, speed, from_x, from_y, start_angle)"""
     rnd = random.Random(4)
     items = [
         (chat_header("Padel crew", "Omar, Sara, Karim, +11"), 560, 700, 1.0),
-        (bubble(["Anyone free for padel", "tonight?"], "Omar", (255, 170, 80)), 720, 900, 1.05),
-        (bubble(["Which court again??"], "Sara", (120, 200, 255)), 250, 1020, 0.9),
-        (bubble(["Need 2 more for", "5-a-side!"], "Karim", (180, 140, 255)), 770, 1190, 0.85),
-        (bubble(["Who's paying for the pitch?"], mine=True), 400, 1360, 1.0),
-        (sheet(), 690, 1570, 0.9),
-        (call_card("Missed call (3)", "Al Barsha Courts"), 360, 1730, 0.95),
-        (call_card("Calling...", "Booking line", red=False), 860, 560, 0.6),
-        (notif("Sunday Football", "Is it 7 or 8? Someone confirm"), 330, 1200, 0.7),
-        (bubble(["Running 10 min late"], "Lina", (120, 230, 160)), 880, 1430, 0.65),
-        (bubble(["Court's full. Again."], "Arjun", (255, 120, 150)), 190, 1560, 0.7),
-        (notif("Voicemail", "Hi, about your 8pm slot..."), 640, 1010, 0.55),
-        (bubble(["Can someone call the club?"]), 860, 1780, 0.55),
-        (sheet(), 170, 840, 0.5),
-        (bubble(["8 or 8:30??"], "Omar", (255, 170, 80)), 300, 620, 0.5),
+        (bubble(["Anyone free for padel", "tonight?"], "Omar", (255, 170, 80)), 720, 880, 1.05),
+        (call_card("Missed call (3)", "Sports club"), 360, 1420, 0.95),
+        (bubble(["Which court again??"], "Sara", (120, 200, 255)), 260, 1000, 0.9),
+        (sheet(), 700, 1290, 0.9),
+        (bubble(["Need 2 more for", "5-a-side!"], "Karim", (180, 140, 255)), 780, 1090, 0.85),
+        (notif("Sunday Football", "Is it 7 or 8? Someone confirm"), 330, 1180, 0.75),
+        (bubble(["Who's paying for the pitch?"], mine=True), 420, 1300, 1.0),
+        (call_card("Calling...", "Booking line", red=False), 800, 700, 0.7),
+        (bubble(["Court's full. Again."], "Arjun", (255, 120, 150)), 230, 820, 0.7),
+        (notif("Voicemail", "Hi, about your 8pm slot..."), 640, 1460, 0.6),
+        (bubble(["Running 10 min late"], "Lina", (120, 230, 160)), 860, 1420, 0.65),
+        (sheet(), 200, 1250, 0.55),
+        (bubble(["8 or 8:30??"], "Omar", (255, 170, 80)), 520, 960, 0.8),
+        (bubble(["Can someone call the club?"]), 540, 1150, 1.0),
     ]
     out = []
+    n = len(items)
     for i, (im, x, y, z) in enumerate(items):
-        ang = rnd.uniform(-5, 5)
+        ang = rnd.uniform(-6, 6)
         sp = pad_img(im, 30).rotate(ang, Image.BICUBIC, expand=True)
-        delay = rnd.uniform(0, 1.9)
-        out.append((sp, x, y, z, delay, rnd.uniform(0, 6.28), rnd.uniform(0.25, 0.5)))
-    # back to front
+        land = -0.35 + i * (3.1 / (n - 1)) + rnd.uniform(-0.08, 0.08)  # some are already landing on frame one
+        side = rnd.choice(["l", "r", "b"])
+        fx = -500 if side == "l" else W + 500 if side == "r" else x + rnd.uniform(-200, 200)
+        fy = y + rnd.uniform(-250, 250) if side != "b" else H + 400
+        out.append((sp, x, y, z, land, rnd.uniform(0, 6.28), rnd.uniform(0.3, 0.55), fx, fy, rnd.uniform(-14, 14)))
     return sorted(out, key=lambda o: o[3])
+
+# ------------------------------------------------------------------ real app details (zoom shots)
+
+@lru_cache(None)
+def ui(name):
+    return Image.open(os.path.join(AS, f"ui_{name}.png")).convert("RGB")
+
+def card_from(im, width, radius=40):
+    """Scale a real UI crop to display width and give it rounded corners."""
+    s = width / im.width
+    im = im.resize((int(round(width)), int(round(im.height * s))), Image.LANCZOS).convert("RGBA")
+    im.putalpha(round_mask(im.width, im.height, radius))
+    return im
+
+@lru_cache(None)
+def card_shadow_img(w, h, r=40):
+    p = 80
+    im = Image.new("RGBA", (w + 2 * p, h + 2 * p), (0, 0, 0, 0))
+    ImageDraw.Draw(im).rounded_rectangle((p, p + 18, p + w, p + h + 18), r, fill=(0, 0, 0, 190))
+    return im.filter(ImageFilter.GaussianBlur(30))
+
+def put_card(cv, card, x, y, scale=1.0, opacity=1.0, cam=NOCAM):
+    sh = card_shadow_img(card.width, card.height)
+    place(cv, sh, x, y, sh.width / 2, sh.height / 2, scale, opacity * 0.85, 0, cam)
+    place(cv, card, x, y, card.width / 2, card.height / 2, scale, opacity, 0, cam)
+
+CW = 960  # display width of a detail card
+
+# Places to play: count "13 places" up from zero, then hand back to the real pixels.
+DIGITS = (15, 838, 96, 916)     # patch box in crop coords (bg covers the real "13")
+
+def detail_discover(lt):
+    im = ui("places").copy()
+    k = clamp((lt - 0.35) / 0.9)
+    fade = 1 - clamp((lt - 1.3) / 0.25)
+    if lt < 1.55:
+        patch = Image.new("RGB", (DIGITS[2] - DIGITS[0], DIGITS[3] - DIGITS[1]), (244, 242, 237))
+        d = ImageDraw.Draw(patch)
+        n = int(round(13 * e_out3(k)))
+        f = font("InterDisplay-SemiBold", 86)
+        sq = 68 / f.getlength("13")   # squeeze Inter's wider digits to the app's "13" width
+        g = Image.new("L", (200, 120), 0)
+        ImageDraw.Draw(g).text((0, 100), str(n), font=f, fill=255, anchor="ls")
+        g = g.resize((int(200 * sq), 120), Image.LANCZOS)
+        ink = Image.new("RGB", g.size, (24, 28, 32))
+        patch.paste(ink, (19 - DIGITS[0], 908 - DIGITS[1] - 100), g)
+        im.paste(Image.blend(im.crop(DIGITS), patch, fade), DIGITS[:2])
+    return card_from(im, CW)
+
+BTN = (72, 1018, 614, 1159)     # "Find a facility" button in the hero crop
+HERO_BG = (28, 42, 50)
+
+def detail_book(lt):
+    im = ui("hero").copy().convert("RGBA")
+    p = math.sin(math.pi * clamp((lt - 0.95) / 0.32))
+    if p > 0:
+        btn = im.crop(BTN)
+        bw, bh = btn.size
+        s = 1 - 0.07 * p
+        d = ImageDraw.Draw(im)
+        d.rounded_rectangle((BTN[0] - 3, BTN[1] - 3, BTN[2] + 3, BTN[3] + 3), (bh + 6) // 2, fill=HERO_BG)
+        b2 = btn.resize((int(bw * s), int(bh * s)), Image.LANCZOS)
+        m = round_mask(b2.width, b2.height, b2.height // 2)
+        im.paste(b2, (int(BTN[0] + (bw - b2.width) / 2), int(BTN[1] + (bh - b2.height) / 2)), m)
+    r = clamp((lt - 1.02) / 0.6)
+    if 0 < r < 1:  # tap ripple
+        lay = Image.new("RGBA", im.size, (0, 0, 0, 0))
+        cx, cy = (BTN[0] + BTN[2]) / 2, (BTN[1] + BTN[3]) / 2
+        rad = 60 + 330 * e_out3(r)
+        ImageDraw.Draw(lay).ellipse((cx - rad, cy - rad * 0.55, cx + rad, cy + rad * 0.55),
+                                    outline=(255, 255, 255, int(140 * (1 - r))), width=6)
+        im.alpha_composite(lay)
+    return card_from(im.convert("RGB"), 900)
+
+@lru_cache(None)
+def chip_box():
+    import json
+    return tuple(json.load(open(os.path.join(AS, "ui_boxes.json")))["football_chip"])
+
+def detail_play(lt):
+    im = ui("chips").copy()
+    x0, y0, x1, y1 = chip_box()
+    on = clamp((lt - 0.95) / 0.18)
+    p = math.sin(math.pi * clamp((lt - 0.85) / 0.3))
+    if on > 0 or p > 0:
+        chip = im.crop((x0, y0, x1, y1))
+        a = np.asarray(chip, np.float32)
+        ratio = np.array(YELLOW, np.float32) / np.array((232, 230, 225), np.float32)
+        lit = np.clip(a * (1 + (ratio - 1) * on), 0, 255).astype(np.uint8)
+        chip = Image.fromarray(lit, "RGB")
+        s = 1 - 0.08 * p
+        cw, ch = chip.size
+        d = ImageDraw.Draw(im)
+        d.rounded_rectangle((x0 - 2, y0 - 2, x1 + 2, y1 + 2), (ch + 4) // 2, fill=(244, 242, 237))
+        c2 = chip.resize((int(cw * s), int(ch * s)), Image.LANCZOS)
+        im.paste(c2, (int(x0 + (cw - c2.width) / 2), int(y0 + (ch - c2.height) / 2)),
+                 round_mask(c2.width, c2.height, c2.height // 2))
+    return card_from(im, CW)
+
+ROW_H = 171
+
+def menu_card(crop, sel_from, sel_to, lt, dim_others=True):
+    """Real menu rows; the app's own 'active row' tint slides onto the selected row."""
+    im = crop.copy()
+    k = e_io(clamp((lt - 0.5) / 0.55))
+    sel = lerp(sel_from, sel_to, k)
+    y = 8 + sel * ROW_H
+    hl = Image.new("RGB", im.size, (255, 255, 255))
+    ImageDraw.Draw(hl).rounded_rectangle((14, y, im.width - 18, y + ROW_H - 16), 30, fill=(229, 227, 221))
+    on = clamp((lt - 0.35) / 0.3)
+    im = Image.blend(im, ImageChops.darker(im, hl), on)
+    if dim_others:
+        veil = Image.new("RGB", im.size, (244, 242, 237))
+        m = Image.new("L", im.size, int(150 * clamp((lt - 0.8) / 0.4)))
+        ImageDraw.Draw(m).rectangle((0, y - 4, im.width, y + ROW_H - 10), fill=0)
+        im = Image.composite(veil, im, m)
+    return im
+
+def detail_train(lt):
+    return card_from(menu_card(ui("menu_train"), 0, 1, lt), CW)
+
+def detail_compete(lt):
+    return card_from(menu_card(ui("menu_compete"), 1, 2, lt), CW)
+
+DETAILS = [("Discover.", detail_discover), ("Book.", detail_book), ("Play.", detail_play),
+           ("Train.", detail_train), ("Compete.", detail_compete)]
 
 # ------------------------------------------------------------------ scenes
 
-def scene_open(cv, t):
-    cam = Cam(1.0 + 0.05 * e_sine(prog(t, 0, 5.0)))
-    k = e_out(prog(t, OPEN_IN, 1.4))
+WORD_Y = 340          # cap-centre of the big word in each detail moment
+CARD_TOP = 500        # cards start below the word and end above the bottom fifth
+
+def scene_hook(cv, t):
+    cam = Cam(1.0 + 0.035 * e_sine(prog(t, 0, COLLAPSE)), cy=1000)
+    cx, cy = W / 2, 1000
+    for sp, x, y, z, land, ph, spd, fx0, fy0, a0 in clutter():
+        k = e_out(prog(t, land - 0.55, 0.55))
+        if k <= 0:
+            continue
+        drift = max(0.0, t - land)
+        px_ = lerp(fx0, x, k) + math.sin(t * spd + ph) * 14 * z
+        py_ = lerp(fy0, y, k) + math.cos(t * spd * 0.8 + ph) * 10 * z - drift * 5 * z
+        scale = 0.9 * z * lerp(1.12, 1.0, k)
+        op = (0.5 + 0.5 * z) * clamp(k * 3)
+        blur = max(0.0, (1.0 - z) * 8)
+        c = e_in3(clamp((t - COLLAPSE - (1 - z) * 0.15) / 0.55))
+        if c > 0:
+            px_, py_ = lerp(px_, cx, c), lerp(py_, cy, c)
+            scale *= 1 - 0.88 * c
+            op *= 1 - c ** 1.5
+        place(cv, sp, px_, py_, sp.width / 2, sp.height / 2, scale, op, blur, cam)
+    # headline over a soft scrim so it reads against the pile
+    k = e_out(prog(t, HOOK_IN, 0.5))
+    out = e_io(prog(t, HOOK_OUT, 0.25))
+    op = k * (1 - out)
+    if op <= 0:
+        return
+    sc = scrim()
+    place(cv, sc, W / 2, 380, sc.width / 2, sc.height / 2, 1, op * 0.92)
     l1 = T("Sport in Dubai", "InterDisplay-SemiBold", 112, tracking=-0.03)
+    put_text(cv, l1, W / 2, 330 + (1 - k) * 26 - out * 16, opacity=op, blur=(1 - k) * 6)
     l2 = T("is scattered.", "InterDisplay-SemiBold", 112, tracking=-0.03)
-    y1, y2 = 900, 1030
-    out1 = e_sine(prog(t, 4.0, 0.85))
-    put_text(cv, l1, W / 2, y1 + (1 - k) * 40, opacity=k * (1 - out1), blur=(1 - k) * 14 + out1 * 8, cam=cam)
-    k2 = e_out(prog(t, OPEN_IN + 0.18, 1.4))
-    # line 2 letter by letter so "scattered." can drift apart
-    rnd = random.Random(11)
     x0 = W / 2 - l2.width / 2
-    s = "is scattered."
-    sc = prog(t, SCATTER, 1.6)
-    for i, c in enumerate(s):
+    # three letters slip out of line, then settle back clearly
+    nud = {4: (-3, -11, -5), 7: (2, 10, 4), 10: (4, -8, 6)}
+    n = e_out(prog(t, NUDGE, 0.2)) * (1 - e_io(prog(t, NUDGE + 0.3, 0.5)))
+    for i, c in enumerate("is scattered."):
         if c == " ":
             continue
         ch = T(c, "InterDisplay-SemiBold", 112, tracking=0)
-        dx, dy = rnd.uniform(-1, 1), rnd.uniform(-1, 1)
-        stag = rnd.uniform(0, 0.35)
-        m = e_io(clamp((sc - stag) / 0.65)) if i >= 3 else 0.0
-        fade = (1 - m) if i >= 3 else (1 - out1)
-        x = x0 + l2.xs[i] + dx * 120 * m
-        y = y2 + (1 - k2) * 40 + dy * 110 * m
-        put_text(cv, ch, x, y, align="left", opacity=k2 * fade, blur=(1 - k2) * 14 + m * 10, cam=cam)
-
-def scene_clutter(cv, t):
-    lt = t - S2
-    cam = Cam(1.0 + 0.04 * e_sine(prog(t, S2, 5.0)), cy=1100)
-    cx, cy = W / 2, 1110
-    for sp, x, y, z, delay, ph, sp_ in clutter():
-        k = e_out(prog(lt, 0.15 + delay, 1.2))
-        if k <= 0:
-            continue
-        # float + parallax drift
-        fx = x + math.sin(lt * sp_ + ph) * 18 * z + (x - cx) * 0.03 * lt * z
-        fy = y + math.cos(lt * sp_ * 0.8 + ph) * 14 * z - lt * 6 * z
-        scale = 0.92 * z
-        blur = max(0.0, (1.0 - z) * 9)
-        op = k * (0.45 + 0.55 * z)
-        # anticipation then collapse into the phone
-        ant = e_sine(prog(t, COLLAPSE - 0.6, 0.6)) * (1 - prog(t, COLLAPSE, 0.3))
-        fx += (fx - cx) * 0.05 * ant; fy += (fy - cy) * 0.05 * ant
-        c = e_in3(clamp((t - COLLAPSE - delay * 0.18) / 0.75))
-        if c > 0:
-            fx, fy = lerp(fx, cx, c), lerp(fy, cy, c)
-            scale *= (1 - 0.85 * c)
-            op *= (1 - c ** 1.6)
-            blur += 8 * c
-        place(cv, sp, fx, fy, sp.width / 2, sp.height / 2, scale, op, blur, cam)
-    # captions
-    names = ["Group chats.", "Spreadsheets.", "Phone calls."]
-    out = e_sine(prog(t, COLLAPSE - 0.7, 0.6))
-    for i, n in enumerate(names):
-        k = e_out(prog(t, CAPS[i], 1.1))
-        tx = T(n, "InterDisplay-SemiBold", 84, tracking=-0.03)
-        put_text(cv, tx, 96, 300 + i * 100 + (1 - k) * 30, align="left", opacity=k * (1 - out),
-                 blur=(1 - k) * 10 + out * 6)
-    # phone with the real app
-    if t >= MERGE - 0.1:
-        pk = e_out(prog(t, MERGE - 0.1, 1.1))
-        scroll = 640 * e_io(prog(t, MERGE + 0.9, 3.0))
-        ph = phone(real_app_screen(scroll))
-        outk = e_sine(prog(t, S2_OUT, 0.55))
-        pcam = Cam(1.0 + 0.035 * e_sine(prog(t, MERGE, 4.1)), cy=1130)
-        put_phone(cv, ph, W / 2, 1175 + (1 - pk) * 30 - outk * 20, scale=0.9 * lerp(0.82, 1.0, pk) * (1 - 0.04 * outk),
-                  opacity=pk * (1 - outk), blur=(1 - pk) * 12 + outk * 10, cam=pcam)
-        k = e_out(prog(t, ONE_APP, 1.2))
-        tx = T("One clean app.", "InterDisplay-SemiBold", 92, tracking=-0.03)
-        put_text(cv, tx, W / 2, 370 + (1 - k) * 30, opacity=k * (1 - outk), blur=(1 - k) * 12 + outk * 6, cam=pcam)
-
-def scene_tagline(cv, t):
-    words = ["Discover.", "Book.", "Play.", "Train.", "Compete."]
-    cam = Cam(1.0 + 0.06 * e_sine(prog(t, S3, 8.0)), cx=300, cy=960)
-    lh = 186
-    # the stack re-centres itself as each word lands, so the newest line sits near the middle
-    n = sum(e_io(prog(t, w - 0.06, 0.9)) for w in WORDS)
-    top = 975 - max(0.0, n - 1) * lh / 2
-    full = e_io(prog(t, FULL, 0.8))
-    for i, w in enumerate(words):
-        t0 = WORDS[i] - 0.06
-        k = e_out(prog(t, t0, 1.0))
-        if k <= 0:
-            continue
-        nxt = WORDS[i + 1] - 0.06 if i < 4 else 1e9
-        dim = e_out3(prog(t, nxt, 0.5)) * (1 - full)
-        op = k * (1 - 0.7 * dim)
-        out = e_io(prog(t, S3_OUT + i * 0.07, 0.65))
-        grad = (ORANGE, PINK) if i == 4 else None
-        tx = T(w, "InterDisplay-Bold", 172, tracking=-0.035, gradient=grad)
-        y = top + i * lh + (1 - k) * 70 - out * 80
-        put_text(cv, tx, 92, y, align="left", opacity=op * (1 - out), blur=(1 - k) * 16 + out * 10,
-                 scale=lerp(1.04, 1.0, k), cam=cam)
-
-SCREENS = [("Find a court.", None, screen_find), ("Book it.", None, screen_book),
-           ("Join a game.", None, screen_join), ("Climb the", "leaderboard.", screen_board)]
-KICK = ["DISCOVER", "BOOK", "PLAY", "COMPETE"]
-
-def scene_screens(cv, t):
-    cam = Cam(1.0 + 0.05 * e_sine(prog(t, LANDS[0] - SLIDE, 12.0)), cy=1150)
-    phone_y = 1228
-    for i, (h1, h2, fn) in enumerate(SCREENS):
-        land = LANDS[i]
-        start = land - SLIDE
-        nxt = LANDS[i + 1] - SLIDE if i < 3 else None
-        if t < start - 0.01:
-            continue
-        if nxt is not None and t > nxt + SLIDE + 0.01:
-            continue
-        lt = t - land
-        k_in = e_io(prog(t, start, SLIDE))
-        k_out = e_io(prog(t, nxt, SLIDE)) if nxt is not None else 0.0
-        fin = e_sine(prog(t, S4_OUT, 0.7)) if i == 3 else 0.0
-        x = W / 2 + (1 - k_in) * 820 - k_out * 820
-        sc = 0.96 * (1.0 - 0.10 * (1 - k_in) - 0.10 * k_out - 0.12 * fin)
-        op = (0.35 + 0.65 * k_in) * (1 - 0.65 * k_out) * (1 - fin)
-        ph = phone(fn(lt))
-        put_phone(cv, ph, x, phone_y + fin * 40, scale=sc, opacity=op, blur=fin * 10, cam=cam)
-        # caption: kicker + headline, cross-fading with the slide
-        ck = e_out(prog(t, land - 0.35, 1.0))
-        co = e_sine(prog(t, nxt - 0.05, 0.4)) if nxt is not None else fin
-        if ck > 0 and co < 1:
-            kt = T(KICK[i], "Inter-SemiBold", 36, tracking=0.2, gradient=(ORANGE, PINK))
-            put_text(cv, kt, W / 2, 258 + (1 - ck) * 20, opacity=ck * (1 - co), blur=(1 - ck) * 6)
-            sz = 84
-            if h2:
-                for j, ln in enumerate([h1, h2]):
-                    tx = T(ln, "InterDisplay-SemiBold", sz, tracking=-0.03)
-                    put_text(cv, tx, W / 2, 350 + j * 92 + (1 - ck) * 34, opacity=ck * (1 - co),
-                             blur=(1 - ck) * 12 + co * 6)
-            else:
-                tx = T(h1, "InterDisplay-SemiBold", sz, tracking=-0.03)
-                put_text(cv, tx, W / 2, 380 + (1 - ck) * 34, opacity=ck * (1 - co), blur=(1 - ck) * 12 + co * 6)
-
-def scene_close(cv, t):
-    cam = Cam(1.0 + 0.045 * e_sine(prog(t, LOGO, 8.75)), cy=1000)
-    rings = asset("logo_rings.png"); word = asset("logo_word.png")
-    full_w = rings.width + word.width
-    s = 820 / full_w
-    lx = W / 2 - 820 / 2
-    ly = 760
-    k = e_out(prog(t, LOGO, 1.5))
-    rs = s * lerp(0.86, 1.0, k)
-    # rings anchor: their own centre
-    rcx = lx + rings.width * s / 2
-    place(cv, rings, rcx, ly, rings.width / 2, rings.height / 2, rs, k, (1 - k) * 18, cam)
-    kw = e_out(prog(t, WORDMARK, 1.3))
-    wcx = lx + rings.width * s + word.width * s / 2
-    place(cv, word, wcx - (1 - kw) * 40, ly, word.width / 2, word.height / 2, s, kw, (1 - kw) * 14, cam)
-    for j, ln in enumerate(["Your sports life,", "in one place."]):
-        kk = e_out(prog(t, LINE + j * 0.16, 1.3))
-        tx = T(ln, "InterDisplay-SemiBold", 80, tracking=-0.03)
-        put_text(cv, tx, W / 2, 1040 + j * 96 + (1 - kk) * 34, opacity=kk, blur=(1 - kk) * 12, cam=cam)
-    kc = e_out(prog(t, CTA, 1.2))
-    tx = T("Join the Dubai Fitness 30x30.", "InterDisplay-Medium", 46, color=(214, 214, 220), tracking=-0.015)
-    put_text(cv, tx, W / 2, 1300 + (1 - kc) * 24, opacity=kc, blur=(1 - kc) * 8, cam=cam)
-    kp = e_out(prog(t, PILL, 1.2))
-    if kp > 0:
-        pill = link_pill()
-        place(cv, pill, W / 2, 1418 + (1 - kp) * 24, pill.width / 2, pill.height / 2, lerp(0.94, 1, kp), kp,
-              (1 - kp) * 8, cam)
+        dx, dy, rot = nud.get(i, (0, 0, 0))
+        img = ch.img
+        if rot and n > 0.01:
+            img = img.rotate(rot * n, Image.BICUBIC, center=(ch.bx + ch.width / 2, ch.by - ch.cap / 2))
+        place(cv, img, x0 + l2.xs[i] + dx * n, 456 + (1 - k) * 26 - out * 16 + dy * n, ch.bx, ch.by - ch.cap / 2,
+              1.0, op, (1 - k) * 6)
 
 @lru_cache(None)
-def link_pill():
-    tx = T("Link in bio", "InterDisplay-SemiBold", 40, color=WHITE, tracking=-0.01)
-    w, h = int(tx.width + 96), 92
+def scrim():
+    im = Image.new("RGBA", (W + 200, 560), (0, 0, 0, 0))
+    ImageDraw.Draw(im).ellipse((40, 60, W + 160, 500), fill=(6, 6, 8, 215))
+    return im.filter(ImageFilter.GaussianBlur(60))
+
+def logo_sprite():
+    return asset("logo_full.png")
+
+def put_logo(cv, x, y, width, op=1.0, blur=0.0, reveal=1.0, cam=NOCAM):
+    """Real Athlo logo; 'reveal' wipes the wordmark in after the rings."""
+    rings, word = asset("logo_rings.png"), asset("logo_word.png")
+    s = width / (rings.width + word.width)
+    lx = x - width / 2
+    place(cv, rings, lx + rings.width * s / 2, y, rings.width / 2, rings.height / 2, s, op, blur, cam)
+    if reveal > 0:
+        place(cv, word, lx + rings.width * s + word.width * s / 2 - (1 - reveal) * 30, y, word.width / 2,
+              word.height / 2, s, op * reveal, blur + (1 - reveal) * 8, cam)
+
+def scene_app(cv, t):
+    """Chaos collapses into the real Athlo logo, then the real app in one phone."""
+    k = e_out(prog(t, MERGE - 0.05, 0.9))
+    up = e_io(prog(t, LOGO_UP, 0.6))
+    out = e_io(prog(t, APP_OUT, 0.26))
+    y = lerp(900, 300, up)
+    wdt = lerp(800, 470, up) * lerp(0.86, 1.0, k)
+    lo = e_io(prog(t, APP_OUT, 0.2))
+    put_logo(cv, W / 2, y - lo * 14, wdt, op=k * (1 - lo), blur=(1 - k) * 10,
+             reveal=e_out(prog(t, MERGE + 0.3, 0.8)))
+    pk = e_out(prog(t, LOGO_UP + 0.42, 0.85))
+    if pk > 0:
+        scroll = 600 * e_io(prog(t, LOGO_UP + 1.05, 1.0))
+        ph = phone(real_app_screen(scroll))
+        sc = 0.735
+        cy = 1003   # phone spans ~489..1517: inside the safe area, nothing hidden at the bottom
+        po = e_io(prog(t, APP_OUT - 0.07, 0.5))   # carousel: the Discover card pushes the phone out
+        put_phone(cv, ph, W / 2 - po * 1000, cy + (1 - pk) * 520, scale=sc, opacity=min(1, pk * 1.4))
+
+def scene_words(cv, t):
+    cam = Cam(1.0 + 0.02 * e_sine(prog(t, WORDS[0], 12.5)), cy=900)
+    for i, (word, fn) in enumerate(DETAILS):
+        w0 = WORDS[i]
+        w1 = WORDS[i + 1] if i < 4 else RECAP[0]
+        lt = t - w0
+        if t < (APP_OUT - 0.08 if i == 0 else w0 - 0.15) or t > w1:
+            continue
+        # word: lands on the beat; leaves completely before the next word appears
+        k = e_out(prog(t, w0 - 0.08, 0.55))
+        o = e_io(prog(t, w1 - 0.34, 0.24))
+        grad = (ORANGE, PINK) if i == 4 else None
+        tx = T(word, "InterDisplay-Bold", 168, tracking=-0.035, gradient=grad)
+        put_text(cv, tx, W / 2, WORD_Y + (1 - k) * 46 - o * 26, opacity=k * (1 - o), blur=(1 - k) * 8,
+                 scale=lerp(1.05, 1.0, k), cam=cam)
+        # card: slides in from the right, out to the left
+        ci = e_io(prog(t, APP_OUT - 0.07, 0.5)) if i == 0 else e_out(prog(t, w0 - 0.15, 0.75))
+        co = e_in3(prog(t, w1 - 0.38, 0.36))
+        card = fn(lt)
+        cy = CARD_TOP + card.height / 2 + max(0, (900 - card.height) / 2 - 40)
+        x = W / 2 + (1 - ci) * (1000 if i == 0 else 900) - co * 1000
+        put_card(cv, card, x, cy, scale=1.0 if i == 0 else lerp(0.96, 1.0, ci),
+                 opacity=1.0 if i == 0 else min(1, ci * 1.6) * (1 - co * 0.6), cam=cam)
+
+def scene_recap(cv, t):
+    words = ["Discover.", "Book.", "Play.", "Train.", "Compete."]
+    lh = 150
+    top = 960 - 2 * lh
+    o = e_io(prog(t, RECAP_OUT, 0.18))
+    for i, w in enumerate(words):
+        k = e_out(prog(t, RECAP[i] - 0.04, 0.45))
+        if k <= 0:
+            continue  # upcoming words are never shown
+        tx = T(w, "InterDisplay-Bold", 138, tracking=-0.035, gradient=(ORANGE, PINK) if i == 4 else None)
+        put_text(cv, tx, W / 2, top + i * lh + (1 - k) * 36 - o * 20, opacity=k * (1 - o), blur=(1 - k) * 6)
+
+def scene_end(cv, t):
+    cam = Cam(1.0 + 0.025 * e_sine(prog(t, LOGO, 7.5)), cy=900)
+    k = e_out(prog(t, RECAP_OUT + 0.12, 0.5))   # starts as the recap finishes clearing
+    up = e_io(prog(t, LINE_OUT + 0.05, 0.6))
+    put_logo(cv, W / 2, lerp(650, 360, up), lerp(780, 540, up) * lerp(0.9, 1, k), op=k, blur=(1 - k) * 10,
+             reveal=e_out(prog(t, LOGO + 0.25, 0.8)), cam=cam)
+    o = e_io(prog(t, LINE_OUT, 0.25))
+    for j, ln in enumerate(["Your sports life,", "in one place."]):
+        kk = e_out(prog(t, LINE + j * 0.12, 0.7))
+        tx = T(ln, "InterDisplay-SemiBold", 86, tracking=-0.03)
+        put_text(cv, tx, W / 2, 960 + j * 104 + (1 - kk) * 28 - o * 16, opacity=kk * (1 - o), blur=(1 - kk) * 6, cam=cam)
+    # the call to action: the largest line in the film's ending
+    for j, ln in enumerate(["Join the Dubai", "Fitness 30x30"]):
+        kk = e_out(prog(t, CTA + j * 0.1, 0.75))
+        tx = T(ln, "InterDisplay-Bold", 116, tracking=-0.035)
+        put_text(cv, tx, W / 2, 660 + j * 134 + (1 - kk) * 30, opacity=kk, blur=(1 - kk) * 6, cam=cam)
+    kw = e_out(prog(t, WHOOP, 0.7))
+    tx = T("Win a Whoop for playing any sport.", "InterDisplay-Medium", 48, color=(222, 222, 228), tracking=-0.015)
+    put_text(cv, tx, W / 2, 945 + (1 - kw) * 22, opacity=kw, blur=(1 - kw) * 5, cam=cam)
+    kb = e_out(prog(t, BUTTON, 0.8))
+    if kb > 0:
+        b = link_button()
+        pulse = 1 - 0.045 * math.sin(math.pi * prog(t, PULSE, 0.3))
+        place(cv, b, W / 2, 1185 + (1 - kb) * 30, b.width / 2, b.height / 2, lerp(0.92, 1, kb) * pulse, kb, 0, cam)
+
+@lru_cache(None)
+def link_button():
+    tx = T("Link in bio", "InterDisplay-SemiBold", 72, color=WHITE, tracking=-0.015)
+    w, h = 760, 164
     ss = 3
     g = np.linspace(0, 1, w * ss)[None, :, None]
     rgb = (np.array(ORANGE)[None, None] * (1 - g) + np.array(PINK)[None, None] * g) * np.ones((h * ss, 1, 1))
@@ -1004,14 +806,33 @@ def link_pill():
     m = Image.new("L", (w * ss, h * ss), 0)
     ImageDraw.Draw(m).rounded_rectangle((0, 0, w * ss - 1, h * ss - 1), h * ss // 2, fill=255)
     im.putalpha(m)
-    im = im.resize((w, h), Image.LANCZOS)
-    im = pad_img(im, 20)
-    d = Image.new("RGBA", im.size, (0, 0, 0, 0))
-    d.alpha_composite(im)
+    im = pad_img(im.resize((w, h), Image.LANCZOS), 60)
+    glow = Image.new("RGBA", im.size, (0, 0, 0, 0))
+    ImageDraw.Draw(glow).rounded_rectangle((60, 80, 60 + w, 60 + h + 10), h // 2, fill=(255, 60, 90, 120))
+    out = glow.filter(ImageFilter.GaussianBlur(26))
+    out.alpha_composite(im)
     ax = tx.bx + tx.width / 2; ay = tx.by - tx.cap / 2
-    tl = (int(round(d.width / 2 - ax)), int(round(d.height / 2 - ay)))
-    d.alpha_composite(tx.img, tl)
-    return d
+    out.alpha_composite(tx.img, (int(round(out.width / 2 - ax)), int(round(out.height / 2 - ay))))
+    return out
+
+# ------------------------------------------------------------------ background
+
+def scene_glows(t):
+    """Soft orange-to-pink light, always on: there are no dark gaps."""
+    dr = lambda f, a: math.sin(t * f) * a
+    base = 0.17 + 0.05 * e_sine(prog(t, 0, 4))
+    bl = [(300 + dr(0.35, 70), 820 + dr(0.27, 90), 460, ORANGE, base),
+          (790 + dr(0.3, 70), 1320 + dr(0.22, 90), 480, PINK, base * 1.05)]
+    burst = 0.0
+    if t > MERGE - 0.2:
+        burst = math.exp(-max(0, t - MERGE) * 2.6) * prog(t, MERGE - 0.2, 0.2)
+    bl.append((540, 950, 240 + 320 * burst, (255, 120, 80), 0.85 * burst))
+    if t >= LOGO - 0.4:
+        lb = math.exp(-max(0, t - LOGO + 0.3) * 2.2) * prog(t, RECAP_OUT, 0.2)
+        bl.append((540, 650, 260 + 220 * lb, (255, 120, 80), 0.6 * lb))
+        e = 0.12 * e_sine(prog(t, LOGO - 0.4, 1.2))
+        bl += [(380, 700, 330, ORANGE, e), (720, 760, 340, PINK, e), (540, 1190, 380, (255, 70, 90), e * 0.8)]
+    return bl
 
 # ------------------------------------------------------------------ frame
 
@@ -1019,18 +840,16 @@ def render(i):
     t = i / FPS
     bg = glow_field(scene_glows(t))
     cv = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    if t < S2:
-        scene_open(cv, t)
-    elif t < S3:
-        scene_clutter(cv, t)
-    elif t < LANDS[0] - SLIDE:
-        scene_tagline(cv, t)
-    elif t < LOGO - 0.0:
-        scene_screens(cv, t)
-    if t >= LOGO - 0.0:
-        scene_close(cv, t)
-    if LOGO - 0.6 < t < LOGO:
-        scene_screens(cv, t)
+    if t < MERGE + 0.2:
+        scene_hook(cv, t)
+    if MERGE - 0.1 <= t < WORDS[0]:
+        scene_app(cv, t)
+    if APP_OUT - 0.1 <= t < RECAP[0] + 0.05:
+        scene_words(cv, t)
+    if RECAP[0] - 0.1 <= t < LOGO:
+        scene_recap(cv, t)
+    if t >= RECAP_OUT + 0.1:
+        scene_end(cv, t)
     bg = bg.convert("RGBA")
     bg.alpha_composite(cv)
     a = np.asarray(bg.convert("RGB"), dtype=np.float32)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Athlo launch film - original score and sound design, synthesised from scratch.
+"""Athlo launch film (30 s cut) - original score and sound design, synthesised from scratch.
 
 96 BPM, D major. A soft ambient bed that builds gently, with subtle hits locked to every
 text beat in timeline.py. Writes work/score_premaster.wav (48 kHz stereo float).
@@ -179,125 +179,120 @@ def hit(t0, note, gain=1.0, sub=1.0, pan=0.0):
 
 # ------------------------------------------------------------------ music
 
-# chord plan: (start, end, notes, gain, brightness Hz)
+# chord plan: (start, end, notes, gain, brightness Hz). The bed is already playing on frame one.
 CH = [
-    (0.0, 5.2, ["D2", "A2", "D3"], 0.20, 500),
-    (4.8, 11.0, ["B1", "F#2", "D3", "C#4"], 0.22, 900),
-    (10.7, 15.2, ["D2", "A2", "F#3", "C#4", "E4"], 0.26, 1500),
-    (15.0, 17.6, ["G2", "D3", "F#3", "B3", "A4"], 0.26, 1700),
-    (17.5, 20.1, ["F#2", "A2", "D3", "F#3", "A4"], 0.26, 1800),
-    (20.0, 22.6, ["E2", "B2", "D3", "G3", "F#4"], 0.27, 1900),
-    (22.5, 25.1, ["A2", "E3", "A3", "D4", "E4"], 0.27, 2000),
-    (25.0, 27.6, ["D2", "A2", "F#3", "A3", "E4"], 0.27, 2200),
-    (27.5, 30.1, ["B1", "F#2", "D3", "A3", "F#4"], 0.27, 2300),
-    (30.0, 32.6, ["G2", "D3", "B3", "F#4", "A4"], 0.28, 2400),
-    (32.5, 36.4, ["A2", "E3", "A3", "C#4", "E4"], 0.28, 2600),
-    (36.2, 45.0, ["D2", "A2", "F#3", "A3", "C#4", "E4", "A4"], 0.30, 2800),
+    (0.0, 4.5, ["B1", "F#2", "D3", "C#4"], 0.25, 900),
+    (4.3, 7.6, ["D2", "A2", "F#3", "C#4", "E4"], 0.27, 1500),
+    (7.5, 10.1, ["G2", "D3", "F#3", "B3", "A4"], 0.26, 1700),
+    (10.0, 12.6, ["F#2", "A2", "D3", "F#3", "A4"], 0.26, 1800),
+    (12.5, 15.1, ["E2", "B2", "D3", "G3", "F#4"], 0.27, 1900),
+    (15.0, 17.6, ["B1", "F#2", "D3", "A3", "F#4"], 0.27, 2100),
+    (17.5, 20.1, ["G2", "D3", "B3", "F#4", "A4"], 0.28, 2300),
+    (20.0, 22.6, ["A2", "E3", "A3", "C#4", "E4"], 0.28, 2500),
+    (22.4, 30.0, ["D2", "A2", "F#3", "A3", "C#4", "E4", "A4"], 0.30, 2800),
 ]
 for i, (a, b, notes, g, br) in enumerate(CH):
-    chord(a, b, notes, g, br * 1.45, att=2.5 if i == 0 else 1.2, rel=1.6 if i < len(CH) - 1 else 3.5)
+    chord(a, b, notes, g, br * 1.45, att=0.3 if i == 0 else 1.0, rel=1.4 if i < len(CH) - 1 else 3.0)
 
-ROOTS = [(11.0, "D2"), (15.0, "G1"), (17.5, "F#1"), (20.0, "E1"), (22.5, "A1"), (25.0, "D2"), (27.5, "B1"),
-         (30.0, "G1"), (32.5, "A1"), (36.25, "D2")]
+ROOTS = [(0.0, "B1"), (4.375, "D2"), (7.5, "G1"), (10.0, "F#1"), (12.5, "E1"), (15.0, "B1"), (17.5, "G1"),
+         (20.0, "A1"), (22.5, "D2")]
 for i, (a, nt) in enumerate(ROOTS):
-    b = ROOTS[i + 1][0] if i + 1 < len(ROOTS) else 44.0
+    b = ROOTS[i + 1][0] if i + 1 < len(ROOTS) else 30.0
     t = tt(b - a + 0.6)
     f = hz(nt)
-    s = (np.sin(2 * math.pi * f * t) + 0.45 * np.sin(4 * math.pi * f * t) + 0.12 * np.sin(6 * math.pi * f * t)) * env_ar(len(t), 0.5, 0.6)
-    g = 0.06 if a < 25 else 0.08
-    add(music, a, s, g)
+    s = (np.sin(2 * math.pi * f * t) + 0.45 * np.sin(4 * math.pi * f * t) + 0.12 * np.sin(6 * math.pi * f * t)) * env_ar(len(t), 0.25, 0.6)
+    add(music, a, s, 0.05 if a < 7.5 else 0.07)
 
-# tension in the clutter: a faint clock that speeds up toward the collapse
-t = S2 + 0.3
+# the chaos: a clock that speeds up until everything collapses
+t = 0.0
 while t < COLLAPSE:
-    p = (t - S2) / (COLLAPSE - S2)
-    add(sfx, t, tick(3200, 0.04, 0.6), 0.03 + 0.03 * p, pan=0.3 if int(t * 8) % 2 else -0.3)
-    t += BEAT / (2 if p < 0.5 else 4)
+    p = t / COLLAPSE
+    add(sfx, t, tick(3200, 0.04, 0.6), 0.03 + 0.035 * p, pan=0.3 if int(t * 8) % 2 else -0.3)
+    t += BEAT / (2 if p < 0.45 else 4)
 
-# heartbeat: soft kick on every beat from the tagline, building
-b = S3
+# heartbeat from the first word, then an arpeggio and light hats as it builds
+b = WORDS[0]
 while b < LOGO - 0.01:
-    k = 0.11 if b < 25 else 0.16
-    if b < LANDS[0] - SLIDE or (b - S3) % (2 * BEAT) < 1e-6 or b >= 25:
-        add(music, b, thump(70, 38, 0.5, 0.05), k)
+    add(music, b, thump(70, 38, 0.5, 0.05), 0.11 if b < 15 else 0.15)
     b += BEAT
-# light hats and an arpeggio once the app screens arrive
-ARP = {25.0: ["D4", "F#4", "A4", "E5"], 27.5: ["B3", "D4", "F#4", "A4"], 30.0: ["G4", "B4", "D5", "F#5"],
-       32.5: ["A3", "C#4", "E4", "A4"]}
+ARP = {12.5: ["E4", "G4", "B4", "F#5"], 15.0: ["B3", "D4", "F#4", "A4"], 17.5: ["G4", "B4", "D5", "F#5"],
+       20.0: ["A3", "C#4", "E4", "A4"]}
 for start, notes in ARP.items():
-    for j in range(8 if start < 32.5 else 12):
+    for j in range(8):
         tn = start + j * BEAT / 2
         if tn >= LOGO - 0.05:
             break
-        add(music, tn, pluck(hz(notes[j % 4]) * (2 if j % 8 >= 4 else 1)), 0.05, pan=-0.35 if j % 2 else 0.35, rev=0.55)
-        add(music, tn + BEAT / 4, hat(), 0.012, pan=0.25)
+        add(music, tn, pluck(hz(notes[j % 4]) * (2 if j >= 4 else 1)), 0.05, pan=-0.35 if j % 2 else 0.35, rev=0.55)
+        if start >= 15.0:
+            add(music, tn + BEAT / 4, hat(), 0.012, pan=0.25)
 
 # ------------------------------------------------------------------ sound design
 
-hit(OPEN_IN, "D5", 0.9, sub=1.3)
-add(sfx, OPEN_IN, shaped_noise(3.0, lambda p: 900, 1.4, lambda p: math.exp(-p * 2.5), 21), 0.03, rev=0.6)
-# scatter: the letters drift away as tiny glints
-r = random.Random(2)
-for i in range(26):
-    tg = SCATTER + r.uniform(0, 1.6)
-    add(sfx, tg, bell(r.choice([hz("A5"), hz("D6"), hz("E6"), hz("F#6")]), 0.8, 0.3), 0.012 * (1 - (tg - SCATTER) / 2),
-        pan=r.uniform(-0.9, 0.9), rev=0.7)
-
-# clutter: notification pings, a buzzing phone
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# hook: an immediate hit with the headline, pings as chats and calls pile up
+hit(HOOK_IN, "D5", 0.9, sub=1.2)
+from film import clutter  # noqa: E402  (same land times as the picture)
 r = random.Random(9)
-for i in range(15):
-    tp = S2 + 0.15 + r.uniform(0, 2.0)
-    add(sfx, tp, ping(r.choice([1320, 1480, 1760, 1175, 990])), 0.035, pan=r.uniform(-0.8, 0.8), rev=0.3)
-for tb in (6.1, 8.4):
+for it in clutter():
+    land = it[4]
+    if land > 0:
+        add(sfx, land - 0.05, ping(r.choice([1320, 1480, 1760, 1175, 990])), 0.032, pan=r.uniform(-0.8, 0.8), rev=0.3)
+for tb in (0.9, 2.7):
     tl = tt(0.42)
     buzz = signal.square(2 * math.pi * 165 * tl, 0.3) * (0.6 + 0.4 * np.sin(2 * math.pi * 24 * tl))
     add(sfx, tb, lp(buzz, 900) * env_ar(len(tl), 0.02, 0.05), 0.05, pan=0.4)
-for i, tc in enumerate(CAPS):
-    add(sfx, tc, tick(1800, 0.06, 0.3), 0.08, rev=0.3)
-    add(sfx, tc, thump(110, 60, 0.3, 0.1), 0.12)
-riser(COLLAPSE - 1.3, MERGE - 0.02, 0.10)
-whoosh(MERGE - 0.05, 1.1, 3000, 250, 0.10, -0.5, 0.5, seed=4)
+# three letters slip, then click back into line
+for j in range(3):
+    add(sfx, NUDGE + j * 0.03, tick(2600 + 400 * j, 0.04, 0.5), 0.03, pan=(-0.3, 0.1, 0.4)[j])
+add(sfx, NUDGE + 0.8, bell(hz("A5"), 1.0, 0.4), 0.02, rev=0.6)
+whoosh(HOOK_OUT + 0.2, 0.5, 800, 3000, 0.03, 0, 0, seed=3)
+riser(COLLAPSE - 0.9, MERGE - 0.02, 0.10)
+whoosh(MERGE - 0.05, 0.75, 3000, 250, 0.09, -0.5, 0.5, seed=4)
 impact(MERGE, 1.0, ("D4", "A4", "F#5"))
-hit(ONE_APP, "A5", 0.6, sub=0.6)
-whoosh(S2_OUT + 0.4, 0.8, 600, 3000, 0.05, 0, 0, seed=7)
+whoosh(LOGO_UP + 0.45, 0.8, 300, 2500, 0.05, 0, 0, seed=7)
+add(sfx, LOGO_UP + 0.9, thump(100, 55, 0.35, 0.15), 0.12, rev=0.15)
+whoosh(APP_OUT + 0.22, 0.5, 600, 3000, 0.04, 0, 0, seed=8)
 
-# tagline: each word on its beat, rising notes
-for i, (tw, nt) in enumerate(zip(WORDS, ["D5", "E5", "F#5", "A5", "D6"])):
-    hit(tw, nt, 1.0 if i < 4 else 1.25, sub=1.0 if i < 4 else 1.4, pan=(-0.2, 0.2, -0.1, 0.1, 0)[i])
-for j, nt in enumerate(["D5", "F#5", "A5", "D6", "F#6"]):
-    add(sfx, FULL + j * 0.06, bell(hz(nt), 2.5, 0.4), 0.025, pan=-0.5 + j * 0.25, rev=0.9)
-add(sfx, FULL, shaped_noise(2.0, lambda p: 5000, 0.8, lambda p: math.sin(math.pi * p), 33), 0.03, rev=0.5)
-whoosh(S3_OUT + 0.35, 0.8, 500, 3500, 0.06, 0.3, -0.3, seed=8)
+# five words, five moments: a hit on the beat, a card slide, then the UI detail
+NOTES = ["D5", "E5", "F#5", "A5", "D6"]
+for i, (w0, nt) in enumerate(zip(WORDS, NOTES)):
+    hit(w0, nt, 1.0 if i < 4 else 1.2, sub=1.0 if i < 4 else 1.3, pan=(-0.2, 0.2, -0.1, 0.1, 0)[i])
+    whoosh(w0 + 0.12, 0.7, 400, 3500, 0.06, 0.7, -0.3, seed=11 + i)
+    w1 = WORDS[i + 1] if i < 4 else RECAP[0]
+    whoosh(w1 - 0.1, 0.45, 2500, 600, 0.035, -0.2, -0.8, seed=21 + i)
+W1, W2, W3, W4, W5 = WORDS
+prev = 0   # Discover: the count 0 -> 13
+for f in range(int(0.35 * 30), int(1.3 * 30)):
+    k = min(1.0, (f / 30 - 0.35) / 0.9)
+    n = int(round(13 * (1 - (1 - k) ** 3)))
+    if n != prev:
+        add(sfx, W1 + f / 30, tick(3600 + 60 * n, 0.03, 0.4), 0.022, pan=-0.2)
+        prev = n
+add(sfx, W1 + 1.3, bell(hz("A5"), 1.2, 0.5), 0.028, rev=0.6)
+add(sfx, W2 + 0.95, tick(1500, 0.05, 0.3), 0.07)             # Book: tap Find a facility
+add(sfx, W2 + 1.02, shaped_noise(0.6, lambda p: 4000, 0.7, lambda p: math.exp(-p * 6), 51), 0.02, rev=0.5)
+add(sfx, W3 + 0.85, tick(1500, 0.05, 0.3), 0.07)             # Play: tap the Football chip
+add(sfx, W3 + 0.95, pluck(hz("A5")), 0.05, rev=0.5)
+for w0, nt in ((W4, "F#5"), (W5, "A5")):                      # Train / Compete: the row lights up
+    add(sfx, w0 + 0.4, tick(1800, 0.04, 0.3), 0.04)
+    add(sfx, w0 + 1.05, bell(hz(nt), 1.2, 0.5), 0.03, rev=0.6)
 
-# app screens: a slide whoosh into each landing, then UI taps
-for i, land in enumerate(LANDS):
-    whoosh(land - 0.12, SLIDE + 0.2, 350, 3800, 0.10, 0.7, -0.5, seed=11 + i)
-    add(sfx, land, thump(100, 55, 0.35, 0.15), 0.16, rev=0.15)
-    add(sfx, land, tick(2000, 0.05, 0.2), 0.05, rev=0.2)
-L1, L2, L3, L4 = LANDS
-for c in range(19):  # typing "Padel, Dubai Marina"
-    add(sfx, L1 - 0.25 + c * 0.7 / 19, tick(4200 + 300 * (c % 3), 0.025, 0.8), 0.018, pan=0.15)
-add(sfx, L1 + 0.45, tick(1500, 0.05, 0.3), 0.06)
-for tp in (0.2, 0.75, 1.42):
-    add(sfx, L2 + tp, tick(1500, 0.05, 0.3), 0.06)
-for j, nt in enumerate(["A5", "D6"]):
-    add(sfx, L2 + 1.55 + j * 0.09, bell(hz(nt), 1.2, 0.5), 0.03, rev=0.6)
-add(sfx, L3 + 0.75, tick(1500, 0.05, 0.3), 0.06)
-for j, nt in enumerate(["F#5", "A5", "D6"]):
-    add(sfx, L3 + 0.95 + j * 0.08, bell(hz(nt), 1.2, 0.5), 0.028, rev=0.6)
-for j, nt in enumerate(["D5", "E5", "F#5", "A5"]):   # rank #7 -> #3
-    add(sfx, L4 + 0.35 + (j + 0.5) * 1.3 / 4, bell(hz(nt), 0.9, 0.5), 0.03, rev=0.6)
-add(sfx, L4 + 1.7, bell(hz("D6"), 1.6, 0.5), 0.035, rev=0.7)
+# the line builds word by word
+for j, (tr, nt) in enumerate(zip(RECAP, ["D5", "F#5", "A5", "D6", "F#6"])):
+    add(sfx, tr, bell(hz(nt), 1.8, 0.5), 0.045, pan=-0.4 + j * 0.2, rev=0.8)
+    add(sfx, tr, thump(95, 50, 0.35, 0.15), 0.10)
+whoosh(RECAP_OUT + 0.2, 0.5, 700, 3000, 0.04, 0, 0, seed=31)
+riser(LOGO - 1.3, LOGO - 0.02, 0.09, seed=6)
 
-# close
-whoosh(S4_OUT + 0.45, 0.9, 3000, 400, 0.06, -0.4, 0.4, seed=19)
-riser(LOGO - 1.5, LOGO - 0.02, 0.10, seed=6)
-impact(LOGO, 1.1, ("D4", "A4", "D5", "F#5"))
-add(sfx, WORDMARK, shaped_noise(1.4, lambda p: 6500, 0.6, lambda p: math.sin(math.pi * min(1, p * 1.3)), 41), 0.025, rev=0.6)
-hit(LINE, "A5", 0.75, sub=0.7)
-hit(CTA, "F#5", 0.6, sub=0.5)
-add(sfx, PILL, ping(1760, 0.3), 0.03, rev=0.4)
+# end card
+impact(LOGO, 1.05, ("D4", "A4", "D5", "F#5"))
+add(sfx, LOGO + 0.25, shaped_noise(1.4, lambda p: 6500, 0.6, lambda p: math.sin(math.pi * min(1, p * 1.3)), 41), 0.025, rev=0.6)
+hit(LINE, "A5", 0.7, sub=0.7)
+whoosh(LINE_OUT + 0.2, 0.5, 600, 2800, 0.035, 0, 0, seed=33)
+hit(CTA, "D6", 0.9, sub=0.9)
+add(sfx, WHOOP, tick(2200, 0.04, 0.3), 0.04, rev=0.3)
+add(sfx, BUTTON, ping(1760, 0.3), 0.035, rev=0.4)
+add(sfx, PULSE, tick(1500, 0.05, 0.3), 0.06, rev=0.3)
+add(sfx, PULSE + 0.05, bell(hz("D6"), 1.5, 0.5), 0.03, rev=0.6)
 
 # ------------------------------------------------------------------ mix
 
@@ -316,13 +311,13 @@ wet = hp(wet, 180)
 
 # gentle build: the music bed rises section by section
 tl = np.arange(N) / SR
-auto = np.interp(tl, [0, 15, 25, 25.5, 36, 36.5, 45], [1.0, 0.92, 0.95, 1.0, 1.0, 1.12, 1.12])
+auto = np.interp(tl, [0, 7.5, 12.5, 22.3, 22.6, 30], [1.0, 0.94, 1.0, 1.0, 1.1, 1.1])
 mix = music * auto + sfx * 1.0 + wet * 0.55
 mix = hp(mix, 35)
 # gentle bus glue: soft saturation
 mix = np.tanh(mix * 1.4) / 1.4
 # fades: in from silence, out over the last 2.2 s
-fi = int(0.05 * SR); fo = int(2.2 * SR)
+fi = int(0.01 * SR); fo = int(1.8 * SR)
 mix[:, :fi] *= np.linspace(0, 1, fi)
 mix[:, -fo:] *= np.cos(np.linspace(0, math.pi / 2, fo)) ** 2
 
