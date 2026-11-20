@@ -28,3 +28,20 @@ A launch film for Athlo in the style of an Apple product page, made entirely in 
 
 - The "Places to play" header, logo bar, photos and home page are taken from the real app recording. The booking, join-a-game and leaderboard screens are mock-ups in the app's own palette and type, because the recording doesn't include those flows. The names and numbers on them are placeholders.
 - The music is synthesised here, so it is original and carries no licence or Content ID risk.
+
+---
+
+# Athlo 15 s Instagram Reel (Remotion + react-three-fiber)
+
+`reel/` is a separate 15 s, 1080x1920, 30 fps reel built with Remotion and `@remotion/three`. The glass (transmission + roughness), depth of field, bloom and film grain are real WebGL materials and post-processing passes. The only inputs are the real logo and the real app screen recording.
+
+```
+cd reel && npm install
+python3 scripts/prep.py                  # logo matte + real app screens -> public/
+scripts/sheet.sh                         # one approval still per beat -> work/stills/
+node scripts/render.mjs video            # picture -> work/reel_picture.mp4 (GL=swangle on CPU-only machines)
+python3 audio/score.py                   # original synthesised score + sound design
+python3 audio/master.py                  # -14 LUFS, true peak < -1.5 dBTP, mux -> out/athlo_reel_15s_1080x1920.mp4
+```
+
+Cue times live in `reel/src/timeline.json` and drive both picture and sound. Type is Inter at its Display optical size (opsz 32), weight 500, instanced from the OFL Inter variable font.
