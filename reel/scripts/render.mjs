@@ -19,6 +19,35 @@ if (mode === 'stills') {
     await renderStill({ serveUrl, composition, frame: fr, output, browserExecutable, chromiumOptions, timeoutInMilliseconds: 240000, onBrowserLog: (l) => { if (!/memory/i.test(l.text)) console.log('[browser]', l.type, l.text.slice(0, 300)); } });
     console.log('still', fr, ((Date.now() - t0) / 1000).toFixed(1) + 's');
   }
+} else if (mode === 'chunks') {
+  // Render in short chunks, each in a fresh browser, so a long software-GL run can't lose its context.
+  const size = Number(process.env.CHUNK || 75);
+  const dir = path.join(work, 'chunks');
+  fs.mkdirSync(dir, { recursive: true });
+  const list = [];
+  for (let a = 0; a < composition.durationInFrames; a += size) {
+    const b = Math.min(composition.durationInFrames - 1, a + size - 1);
+    const out = path.join(dir, `c_${String(a).padStart(3, '0')}.mkv`);
+    list.push(out);
+    if (fs.existsSync(out)) continue;
+    for (let attempt = 1; ; attempt++) {
+      try {
+        const tmp = out.replace('.mkv', '.tmp.mkv');
+        await renderMedia({
+          serveUrl, composition, codec: 'h264-mkv', crf: 12, muted: true, browserExecutable, chromiumOptions,
+          concurrency: Number(process.env.CONC || 3), timeoutInMilliseconds: 240000, frameRange: [a, b], outputLocation: tmp,
+        });
+        fs.renameSync(tmp, out);
+        console.log(`chunk ${a}-${b} done`);
+        break;
+      } catch (e) {
+        console.log(`chunk ${a}-${b} attempt ${attempt} failed: ${String(e.message).slice(0, 160)}`);
+        if (attempt >= 4) throw e;
+      }
+    }
+  }
+  fs.writeFileSync(path.join(dir, 'list.txt'), list.map((f) => `file '${f}'`).join('\n'));
+  console.log('all chunks rendered');
 } else {
   await renderMedia({
     serveUrl, composition, codec: 'h264', crf: 12, muted: true, browserExecutable, chromiumOptions,
