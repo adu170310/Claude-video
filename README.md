@@ -28,3 +28,28 @@ A launch film for Athlo in the style of an Apple product page, made entirely in 
 
 - The "Places to play" header, logo bar, photos and home page are taken from the real app recording. The booking, join-a-game and leaderboard screens are mock-ups in the app's own palette and type, because the recording doesn't include those flows. The names and numbers on them are placeholders.
 - The music is synthesised here, so it is original and carries no licence or Content ID risk.
+
+---
+
+# Athlo 30x30 speedrun reel (30 s, 1080x1920, 30 fps)
+
+A second, separate piece in `speedrun/`: a retro-modern game HUD in Athlo's colours. Everything is generated in code: an original 5x7 pixel font, pixel-art sprites, and a synthesised chiptune score with SFX. The only input is the real logo.
+
+```
+./speedrun/render.sh   # about 1.5 min on 4 cores -> out/athlo_speedrun_30s_1080x1920.mp4
+```
+
+| Time | Beat (128 BPM) |
+|---|---|
+| 0:00 to 2:8 | "ATHLO 30x30. SPEEDRUN ATTEMPT." Loading bar fills, READY?, GO! |
+| 2:8 to 9:8 | Padel, running, football, gym, swimming. Each one is logged, then "Achievement unlocked" fires with sparkles and an XP jump. |
+| 9:8 to 13:1 | Example leaderboard: 47th, 30th, 12th (labelled illustrative). |
+| 13:1 to 17:8 | Combo x3, x5, x7 (3-, 5-, 7-day streak). Flashes every 2 beats, then every beat, then every half beat. |
+| 17:8 to 20:6 | "FINAL BOSS: 9 DAYS LEFT", a calendar monster with screen shake and HP loss. |
+| 20:6 to 23:4 | "POWER-UP ACQUIRED: ONE SESSION A DAY", then VICTORY with rank 1st (example). The run timer stops. |
+| 23:4 to 30:0 | PRESS START blinks, then the end card (logo, "JOIN THE ATHLO 30x30 CHALLENGE", LINK IN BIO), held for 5.6 s. |
+
+- The HUD (HP, XP and DAY xx OF 30) sits below the top tenth. The run timer and the example rank tracker are in the corners. Text stays between y=192 and y=1536, and `picture.py` audits every text draw against that band.
+- XP is shown only as a bar and "+XP". There are no point values and no formula.
+- Scene cuts use gradient pixel-block wipes, so no frame is ever black. The background (stars, a pixel skyline and a scrolling grid) moves from frame one.
+- `score.py` uses polyBLEP pulse waves, a 4-bit triangle bass, noise drums and a synth kick and snare. All melodies and SFX are original. `master.py` normalises to -14 LUFS with true peak below -1 dBTP.
