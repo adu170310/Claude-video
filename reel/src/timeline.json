@@ -1,0 +1,13 @@
+{
+  "_doc": "Every cue in frames @30fps. Shared by the Remotion picture (src/) and the synthesised score (scripts/score.py). 120 BPM: 1 beat = 15 frames.",
+  "fps": 30,
+  "duration": 540,
+  "bpm": 120,
+  "hook": { "start": 0, "end": 45, "punch": 24 },
+  "day1": { "start": 45, "end": 135, "ticks": [60, 75, 90, 105] },
+  "day10": { "start": 135, "end": 225, "swap": 137, "ticks": [165, 180, 195] },
+  "day20": { "start": 225, "end": 315, "notifs": [234, 252, 270], "alarm": [228, 282] },
+  "weekend": { "start": 315, "end": 420, "cards": [319, 326, 333, 340], "locked": 360 },
+  "sign": { "start": 420, "end": 465, "words": [422, 426, 430, 434] },
+  "end": { "start": 465, "end": 540, "logo": 465, "days": 469, "join": 473, "button": 478 }
+}
