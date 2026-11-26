@@ -12,7 +12,7 @@ const E = T.end;
 export const DarkBg: React.FC = () => {
   const f = useCurrentFrame();
   if (f < S.start - 4) return null;
-  const glow = ei(f, [S.start, E.start + 20], [0.12, 0.3], theme.ease.soft);
+  const glow = ei(f, [S.start - 4, E.start + 20], [0.5, 0.32], theme.ease.soft);
   return (
     <AbsoluteFill style={{ background: theme.c.charcoal, overflow: "hidden" }}>
       <div
@@ -45,7 +45,7 @@ export const Sign: React.FC = () => {
   const f = useCurrentFrame();
   if (f < S.start || f > E.start + 6) return null;
   const words = ["This", "is", "your", "sign."];
-  const out = ei(f, [E.start - 4, E.start + 4], [0, 1], theme.ease.in);
+  const out = ei(f, [E.start - 5, E.start + 2], [0, 1], theme.ease.in);
   const push = ei(f, [S.start, E.start], [1, 1.05], theme.ease.soft);
   return (
     <AbsoluteFill

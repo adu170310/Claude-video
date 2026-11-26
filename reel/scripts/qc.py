@@ -12,7 +12,7 @@ size = int(probe["format"]["size"]) / 1e6
 t = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-i", f, "-af", "loudnorm=print_format=json", "-f", "null", "-"],
                    capture_output=True, text=True).stderr
 ln = json.loads(t[t.rfind("{"):t.rfind("}") + 1])
-bd = subprocess.run(["ffmpeg", "-hide_banner", "-i", f, "-vf", "blackdetect=d=0.0:pix_th=0.10", "-an", "-f", "null", "-"],
+bd = subprocess.run(["ffmpeg", "-hide_banner", "-i", f, "-vf", "blackdetect=d=0.0:pix_th=0.05", "-an", "-f", "null", "-"],
                     capture_output=True, text=True).stderr
 blacks = re.findall(r"black_start:\S+ black_end:\S+", bd)
 raw = subprocess.run(["ffmpeg", "-v", "error", "-i", f, "-frames:v", "3", "-vf", "scale=270:480", "-f", "rawvideo",

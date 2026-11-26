@@ -45,8 +45,8 @@ const Picture: React.FC = () => (
   <Camera>
     <Journey />
     <Hook />
-    <Weekend />
     <DarkBg />
+    <Weekend />
     <Sign />
     <EndCard />
   </Camera>
@@ -58,7 +58,7 @@ const BLUR: [number, number][] = [
   [T.hook.end - 8, T.hook.end + 6],
   [T.weekend.start - 1, T.weekend.cards[3] + 12],
   [T.weekend.locked, T.weekend.locked + 8],
-  [T.weekend.end - 3, T.weekend.end + 7],
+  [T.weekend.end - 6, T.weekend.end + 2],
   [T.day20.notifs[0], T.day20.notifs[0] + 6],
   [T.day20.notifs[1], T.day20.notifs[1] + 6],
   [T.day20.notifs[2], T.day20.notifs[2] + 6],

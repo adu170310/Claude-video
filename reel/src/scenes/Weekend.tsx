@@ -53,7 +53,7 @@ export const Weekend: React.FC = () => {
   const head = sp(f, W.start, theme.spring.slam);
   const lock = sp(f, W.locked, theme.spring.slam);
   const locked = f >= W.locked;
-  const clear = ei(f, [W.end - 3, W.end + 6], [0, 1], theme.ease.in);
+  const clear = ei(f, [W.end - 6, W.end + 1], [0, 1], theme.ease.in);
 
   return (
     <AbsoluteFill style={{ opacity: 1 - clear }}>

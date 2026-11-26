@@ -24,10 +24,10 @@ const Header: React.FC = () => {
     <>
       {stages.map((s, i) => {
         const next = stages[i + 1]?.at ?? 99999;
-        if (f < s.at - 4 || f > next + 8) return null;
-        const p = sp(f, s.at, s.cfg);
+        if (f < s.at || f > next + 2) return null;
+        const p = sp(f, s.at + 1, s.cfg);
         const ps = sp(f, s.at + 5, s.cfg);
-        const out = ei(f, [next - 1, next + 6], [0, 1], theme.ease.in);
+        const out = ei(f, [next - 5, next + 1], [0, 1], theme.ease.in);
         const chaos = i === 2 ? 1 : 0;
         const jx = chaos * noise(f / 1.4, 2) * 5;
         const jr = chaos * noise(f / 1.7, 7) * 1.6 + (i === 1 ? -2 : 0);
@@ -87,7 +87,7 @@ const Card: React.FC = () => {
   const breathe = Math.sin(f / 20) * 4;
   const dayN = f < D10.start ? 1 : f < D20.start ? 10 : 20;
 
-  const swapOut = (i: number) => ei(f, [D10.swap - 3 + i * 2, D10.swap + 4 + i * 2], [0, 1], theme.ease.in);
+  const swapOut = (i: number) => ei(f, [D10.swap - 6 + i, D10.swap + i], [0, 1], theme.ease.in);
 
   return (
     <div
@@ -132,7 +132,7 @@ const Card: React.FC = () => {
         <div style={{ height: 2, background: theme.c.hair, marginBottom: 14 }} />
 
         {/* Day 1 rows */}
-        {f < D10.swap + 12 && (
+        {f < D10.swap + 4 && (
           <div style={{ position: "absolute", left: 52, right: 52, top: 168 }}>
             {rows1.map((r, i) => {
               const o = swapOut(i);
@@ -161,7 +161,7 @@ const Card: React.FC = () => {
         {f >= D10.swap && (
           <div style={{ position: "absolute", left: 52, right: 52, top: 172 }}>
             {rows10.map((r, i) => {
-              const pin = sp(f, D10.swap + 4 + i * 4, theme.spring.snappy);
+              const pin = sp(f, D10.swap + 2 + i * 4, theme.spring.snappy);
               const crooked = [-16, 12, -8][i];
               return (
                 <div

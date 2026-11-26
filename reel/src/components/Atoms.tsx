@@ -14,7 +14,6 @@ export const Grad: React.FC<{ children: React.ReactNode; style?: React.CSSProper
       backgroundImage: bg,
       WebkitBackgroundClip: "text",
       backgroundClip: "text",
-      color: "transparent",
       WebkitBoxDecorationBreak: "clone",
       paddingRight: "0.04em",
       ...style,
